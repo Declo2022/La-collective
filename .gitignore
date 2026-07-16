@@ -1,0 +1,19 @@
+# Dépendances
+node_modules/
+
+# Secrets — jamais commités (le gabarit infra/.env.example fait foi)
+.env
+.env.*
+!.env.example
+
+# Logs & artefacts
+*.log
+dist/
+build/
+coverage/
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

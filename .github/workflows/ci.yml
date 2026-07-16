@@ -1,0 +1,75 @@
+name: CI
+
+# Socle de qualité Phase 0 : format, validation des workflows n8n,
+# des migrations Supabase, et scan de secrets. Vert = mergeable.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint & validations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vérifier le formatage (Prettier)
+        run: npm run format:check
+
+      - name: Valider les workflows n8n (JSON parsable)
+        run: |
+          shopt -s nullglob
+          files=(n8n/workflows/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "Aucun workflow n8n pour l'instant — OK en Phase 0."
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            echo "→ $f"
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))"
+          done
+
+      - name: Vérifier le nommage des migrations Supabase
+        run: |
+          shopt -s nullglob
+          bad=0
+          for f in supabase/migrations/*.sql; do
+            base=$(basename "$f")
+            # attendu : <timestamp>_<nom>.sql  (ex. 20260716120000_init.sql)
+            if ! [[ "$base" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "❌ Nom de migration invalide : $base"
+              bad=1
+            fi
+          done
+          [ "$bad" -eq 0 ] && echo "Migrations OK."
+          exit $bad
+
+  secret-scan:
+    name: Scan de secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

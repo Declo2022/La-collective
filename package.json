@@ -1,0 +1,17 @@
+{
+  "name": "african-college",
+  "private": true,
+  "version": "0.0.0",
+  "description": "African College — entreprise e-commerce pilotée par agents IA (Shopify + n8n + Supabase + OpenAI).",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

@@ -6,8 +6,10 @@ le SEO, le support et la croissance, orchestré par n8n, avec Supabase comme
 mémoire/entrepôt et OpenAI comme moteur de raisonnement. L'humain garde le
 contrôle via un poste de commande Telegram (validation des actions à impact).
 
-> **État : Phase 0 — Fondations.** Ce dépôt pose le socle (structure, secrets,
-> CI, gouvernance). Aucun agent ni workflow métier n'est encore actif.
+> **État : Phase 1 — Socle données & instrumentation.** Les fondations (Phase 0)
+> sont en place. Le schéma Supabase (21 tables) et les specs des workflows n8n
+> sont posés ; l'ingestion Shopify + analytics se branche ensuite. Aucun agent
+> n'est encore actif.
 
 ## Architecture
 
@@ -37,8 +39,8 @@ cp infra/.env.example .env # puis remplir les valeurs (jamais commité)
 
 | Phase | Objet                                      | État         |
 | ----- | ------------------------------------------ | ------------ |
-| 0     | Fondations & gouvernance                   | **en cours** |
-| 1     | Socle données & instrumentation            | à venir      |
+| 0     | Fondations & gouvernance                   | ✅ fait      |
+| 1     | Socle données & instrumentation            | **en cours** |
 | 2     | Backbone d'automatisation (n8n)            | à venir      |
 | 3     | Couche agents — Contenu & SEO              | à venir      |
 | 4     | Poste de commande humain (Telegram / HITL) | à venir      |

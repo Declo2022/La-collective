@@ -31,7 +31,19 @@ Les migrations s'appliquent dans l'ordre du timestamp.
 | `…130200_kb_knowledge_base.sql` | kb_artists, kb_interviews, kb_brand_story, product_profiles… |
 | `…130300_lot1_rls_storage.sql`  | RLS des 8 tables + bucket privé `documents`                  |
 
-_Lots suivants (à venir) : Lot 2 tâches & validation ; Lot 3 logs (event_log), policies d'approbation, registre des workflows, pilotage._
+**Renforcement multi-agents — Lot 2 (système de tâches type Linear/Jira, +16 tables) :**
+
+| Fichier                           | Contenu                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `…140000_lot2_task_structure.sql` | task_teams, task_projects, task_cycles, task_states                |
+| `…140100_lot2_tasks_core.sql`     | tasks, task_labels, task_label_links, task_dependencies            |
+| `…140200_lot2_task_collab.sql`    | task_comments, task_reviews, task_subscribers, activity, time_logs |
+| `…140300_lot2_notifications.sql`  | people, notifications (outbox), notification_preferences           |
+| `…140400_lot2_indexes_rls.sql`    | index d'accès (board/filtres) + RLS des 16 tables                  |
+
+**Total après Lot 2 : 45 tables.**
+
+_Lot suivant (à venir) : Lot 3 — logs (event_log), policies d'approbation, registre des workflows, pilotage._
 
 ## Appliquer
 

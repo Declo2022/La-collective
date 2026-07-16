@@ -43,7 +43,27 @@ Les migrations s'appliquent dans l'ordre du timestamp.
 
 **Total après Lot 2 : 45 tables.**
 
-_Lot suivant (à venir) : Lot 3 — logs (event_log), policies d'approbation, registre des workflows, pilotage._
+**Renforcement multi-agents — Lot 3 (gouvernance entreprise, +23 tables) :**
+
+| Fichier                                      | Contenu                                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `…150000_lot3a_logs_audit_rollback.sql`      | event_log ; audit_trail (immuable, hash chain) ; change_sets                          |
+| `…150100_lot3b_errors_monitoring_alerts.sql` | job_queue, dead_letter_queue, heartbeats, health_checks, metrics, alert_rules, alerts |
+| `…150200_lot3c_kpi_cost.sql`                 | kpi_definitions, kpi_snapshots, cost_ledger, profitability_snapshots                  |
+| `…150300_lot3c_approval.sql`                 | approval_chains/steps/policies/requests + approval_decisions (immuable)               |
+| `…150400_lot3c_registry_backups.sql`         | workflow_registry, workflow_versions, workflow_runs, backup_runs                      |
+
+**Total après Lot 3 : 67 tables.** `audit_log` (Phase 1) est remplacé par
+`event_log` + `audit_trail`. Nécessite `pgcrypto` (activé par la migration 3a).
+
+### Immuabilité
+
+`audit_trail` et `approval_decisions` sont **append-only** : des triggers
+rejettent tout `UPDATE`/`DELETE`. `audit_trail` chaîne en plus chaque ligne par
+hash SHA-256 (`hash = sha256(seq ‖ prev_hash ‖ payload ‖ created_at)`) —
+toute altération rompt la chaîne et devient détectable.
+
+_Prochaine étape : définition des 8 agents (+ policies), puis sous-workflows `lib-*`, puis Phase 2._
 
 ## Appliquer
 

@@ -1,12 +1,14 @@
 # Supabase — schéma & migrations
 
-Schéma de la Phase 1 : **21 tables** en 5 domaines (catalogue, commercial,
-mesure, agents, plomberie). Voir `docs/architecture.md` et l'artifact Phase 1
-pour le détail (ERD, RLS, index).
+Phase 1 : **21 tables** en 5 domaines (catalogue, commercial, mesure, agents,
+plomberie). Renforcement (multi-agents) : tables ajoutées par lots. Voir
+`docs/architecture.md` et les artifacts d'architecture pour le détail.
 
 ## Ordre des migrations
 
-Les migrations s'appliquent dans l'ordre du timestamp :
+Les migrations s'appliquent dans l'ordre du timestamp.
+
+**Phase 1 — socle (21 tables) :**
 
 | Fichier                            | Contenu                                                        |
 | ---------------------------------- | -------------------------------------------------------------- |
@@ -19,6 +21,17 @@ Les migrations s'appliquent dans l'ordre du timestamp :
 | `…120600_indexes.sql`              | index d'accès + HNSW vectoriel                                 |
 | `…120700_rls.sql`                  | RLS activé partout, refus par défaut                           |
 | `…120800_storage_buckets.sql`      | buckets privés : product-media, agent-artifacts, exports       |
+
+**Renforcement multi-agents — Lot 1 (mémoire + RAG + KB, +8 tables) :**
+
+| Fichier                         | Contenu                                                      |
+| ------------------------------- | ------------------------------------------------------------ |
+| `…130000_memory_evolution.sql`  | agent_memory : +type, importance, décroissance, source_run   |
+| `…130100_rag_documents.sql`     | documents, document_chunks (embeddings HNSW)                 |
+| `…130200_kb_knowledge_base.sql` | kb_artists, kb_interviews, kb_brand_story, product_profiles… |
+| `…130300_lot1_rls_storage.sql`  | RLS des 8 tables + bucket privé `documents`                  |
+
+_Lots suivants (à venir) : Lot 2 tâches & validation ; Lot 3 logs (event_log), policies d'approbation, registre des workflows, pilotage._
 
 ## Appliquer
 

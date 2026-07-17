@@ -1,0 +1,62 @@
+{
+  "name": "lib-approval-gate",
+  "meta": {
+    "description": "Workflow #9 — Brique réutilisable. AVANT toute action commerciale/Shopify, un workflow appelle cette brique avec un proposal_id : elle renvoie autorise=true SEULEMENT si la proposition est approuvée (fn_can_execute). Aucune action ne s'exécute sinon."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [{ "name": "proposal_id", "type": "string" }]
+        }
+      },
+      "id": "wf-trigger",
+      "name": "Appel (Execute Workflow)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select fn_can_execute($1::uuid) as autorise;",
+        "options": { "queryReplacement": "={{ $json.proposal_id }}" }
+      },
+      "id": "gate-check",
+      "name": "fn_can_execute",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [220, 0],
+      "credentials": {
+        "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.autorise }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ]
+        }
+      },
+      "id": "if-allowed",
+      "name": "Autorisé ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Appel (Execute Workflow)": { "main": [[{ "node": "fn_can_execute", "type": "main", "index": 0 }]] },
+    "fn_can_execute": { "main": [[{ "node": "Autorisé ?", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "lib" }, { "name": "mvp" }, { "name": "wf-9" }]
+}

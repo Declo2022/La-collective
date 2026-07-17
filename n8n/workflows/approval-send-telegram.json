@@ -1,0 +1,63 @@
+{
+  "name": "approval-send-telegram",
+  "meta": {
+    "description": "Workflow #9 — Envoi d'une demande d'approbation sur Telegram avec boutons Valider / Refuser. Appelé quand une demande atteint l'étape humaine. Entrées : request_id, action_type, summary, cost_usd."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "request_id", "type": "string" },
+            { "name": "action_type", "type": "string" },
+            { "name": "summary", "type": "string" },
+            { "name": "cost_usd", "type": "number" }
+          ]
+        }
+      },
+      "id": "wf-trigger",
+      "name": "Appel (Execute Workflow)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
+        "text": "=🔔 *Validation requise* — {{ $json.action_type }}\\n\\n{{ $json.summary }}\\n\\nCoût estimé : ~{{ $json.cost_usd }} $\\nDemande : `{{ $json.request_id }}`",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "reply_markup": "inlineKeyboard"
+        },
+        "replyMarkup": {
+          "inline_keyboard": {
+            "rows": [
+              {
+                "row": {
+                  "buttons": [
+                    { "text": "✅ Valider", "additionalFields": { "callback_data": "=approve:{{ $json.request_id }}" } },
+                    { "text": "❌ Refuser", "additionalFields": { "callback_data": "=reject:{{ $json.request_id }}" } }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-tg",
+      "name": "Envoyer sur Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [220, 0],
+      "credentials": {
+        "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Appel (Execute Workflow)": { "main": [[{ "node": "Envoyer sur Telegram", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "approval" }, { "name": "mvp" }, { "name": "wf-9" }]
+}

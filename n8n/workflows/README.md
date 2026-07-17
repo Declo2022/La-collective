@@ -54,9 +54,41 @@ Telegram à 80%).
 
 ---
 
+## ✅ #9 — Validation humaine Telegram (en cours)
+
+**Cœur SQL (testé sur PostgreSQL 16)** — `…180000_wf9_approval_engine.sql`.
+Moteur **générique** : marche pour tout type d'action via `approval_policies`
+(ajouter une action commerciale = insérer une ligne, zéro code).
+
+| Fonction | Rôle |
+| --- | --- |
+| `fn_open_approval(proposal, action_type, cost)` | ouvre une demande selon la politique (défaut restrictif) |
+| `fn_record_decision(request, approver…, decision)` | enregistre la décision (immuable + audit) et avance la chaîne |
+| `fn_can_execute(proposal)` | **garde-fou** : true seulement si approuvé |
+| `fn_record_execution_result(request, result)` | enregistre le résultat (applied/failed) |
+| vue `v_pending_approvals` | file des approbations en attente |
+
+Chaque approbation enregistre **date** (`created_at`), **utilisateur** (`decided_by`
++ ledger par étape), **coût** (`cost_usd`), **résultat** (`result`).
+
+**Workflows n8n (à importer) :**
+
+- `lib-approval-gate.json` — brique appelée avant toute action ; `fn_can_execute`.
+- `approval-send-telegram.json` — envoie la demande avec boutons Valider/Refuser.
+- `approval-human-telegram.json` — reçoit le clic, enregistre la décision humaine.
+
+> Fonctions SQL validées ici (chaîne CEO→CTO→humain, refus, garde-fou,
+> immuabilité). Les JSON n8n sont importables et à exécuter dans n8n Cloud —
+> voir `docs/setup-n8n-telegram.md`.
+
+**Reste à faire pour clôturer #9 :** provisionner n8n Cloud + bot Telegram,
+importer les 3 workflows, faire un run réel (bouton → décision enregistrée).
+
+---
+
 ## Prochains workflows
 
-#9, puis lot B, etc. Décisions spécifiques déjà prises (voir `docs/mvp.md`) :
+Lot B : #1, #3, #2, #4. Décisions spécifiques déjà prises (voir `docs/mvp.md`) :
 
 - **#7 Prospection** : recherche web externe + enrichissement IA + import de
   listes fournies.

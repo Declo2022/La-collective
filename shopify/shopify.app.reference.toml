@@ -1,0 +1,45 @@
+# =============================================================================
+# African College — configuration Shopify app (RÉFÉRENCE)
+# -----------------------------------------------------------------------------
+# Config correcte pour l'app back-office « n8n-integration » utilisée par n8n
+# via la méthode client_credentials (server-to-server, boutique détenue par toi).
+#
+# COMMENT L'UTILISER
+#   1. Ouvre le shopify.app.toml de TON projet CLI Shopify.
+#   2. Remplace tout son contenu par celui-ci.
+#   3. GARDE la ligne client_id existante de ton projet (ne la remplace pas —
+#      elle identifie ton app déjà créée). Colle-la à la place du placeholder.
+#   4. Lance :  shopify app deploy
+#
+# Ce fichier n'est PAS le toml actif du CLI (nom volontairement différent) :
+# c'est le gabarit de vérité, versionné, sans aucune valeur de démo.
+# =============================================================================
+
+client_id = "REMPLACE_PAR_TON_CLIENT_ID_EXISTANT"
+name = "n8n-integration"
+
+# URL publique réelle = la vitrine (plus de https://example.com).
+# Non utilisée par client_credentials, mais doit être une URL valide et vraie.
+application_url = "https://africancollege.store"
+
+# App de back-office (pas d'interface intégrée à l'admin Shopify).
+embedded = false
+
+[access_scopes]
+# Scopes LECTURE pour rapports / analytics / anomalies / marges.
+# (write_content sera ajouté PLUS TARD, uniquement pour la publication de
+#  contenu validée par toi via Telegram.)
+scopes = "read_orders,read_products,read_inventory,read_locations"
+# false (ou absent) => installation gérée par Shopify : pas de serveur à héberger,
+# Shopify affiche l'écran d'approbation des scopes et installe l'app.
+use_legacy_install_flow = false
+
+[auth]
+# Requis par le format, non utilisé par client_credentials. URL réelle du domaine.
+redirect_urls = ["https://africancollege.store/api/auth"]
+
+[webhooks]
+api_version = "2025-07"
+
+[build]
+include_config_on_deploy = true

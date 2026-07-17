@@ -1,0 +1,59 @@
+{
+  "name": "test-shopify-connection",
+  "meta": {
+    "description": "Test de connexion Shopify <-> n8n (LECTURE SEULE). Déclenchement manuel : GET /shop.json via le token Admin API (header X-Shopify-Access-Token). Confirme que le credential + les variables d'env fonctionnent. Aucune écriture."
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Lancer le test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/shop.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "shop",
+      "name": "GET /shop.json (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "credentials": {
+        "httpHeaderAuth": { "id": "SHOPIFY_ADMIN", "name": "Shopify Admin (X-Shopify-Access-Token)" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "s1", "name": "shop_name", "value": "={{ $json.shop.name }}", "type": "string" },
+            { "id": "s2", "name": "domain", "value": "={{ $json.shop.myshopify_domain }}", "type": "string" },
+            { "id": "s3", "name": "plan", "value": "={{ $json.shop.plan_display_name }}", "type": "string" },
+            { "id": "s4", "name": "currency", "value": "={{ $json.shop.currency }}", "type": "string" },
+            { "id": "s5", "name": "connexion", "value": "OK ✅", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ok",
+      "name": "Connexion vérifiée",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Lancer le test": { "main": [[{ "node": "GET /shop.json (read-only)", "type": "main", "index": 0 }]] },
+    "GET /shop.json (read-only)": { "main": [[{ "node": "Connexion vérifiée", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "shopify" }, { "name": "test" }]
+}

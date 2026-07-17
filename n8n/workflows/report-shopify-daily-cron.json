@@ -21,20 +21,37 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/oauth/access_token",
+        "sendBody": true, "contentType": "form-urlencoded",
+        "bodyParameters": { "parameters": [
+          { "name": "grant_type", "value": "client_credentials" },
+          { "name": "client_id", "value": "={{ $env.SHOPIFY_CLIENT_ID }}" },
+          { "name": "client_secret", "value": "={{ $env.SHOPIFY_CLIENT_SECRET }}" }
+        ] },
+        "options": {}
+      },
+      "id": "shopify-token", "name": "Obtenir token Shopify",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [300, 0]
+    },
+    {
+      "parameters": {
         "method": "GET",
         "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/orders.json",
-        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "X-Shopify-Access-Token", "value": "={{ $('Obtenir token Shopify').item.json.access_token }}" }
+        ] },
         "sendQuery": true,
         "queryParameters": { "parameters": [
           { "name": "status", "value": "any" },
-          { "name": "created_at_min", "value": "={{ $json.since }}" },
+          { "name": "created_at_min", "value": "={{ $('Fenêtre (veille)').item.json.since }}" },
           { "name": "limit", "value": "250" }
         ] },
         "options": {}
       },
       "id": "shopify-read", "name": "Lire commandes Shopify (read-only)",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 0],
-      "credentials": { "httpHeaderAuth": { "id": "SHOPIFY_ADMIN", "name": "Shopify Admin (X-Shopify-Access-Token)" } }
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 0]
     },
     {
       "parameters": {
@@ -94,7 +111,8 @@
   ],
   "connections": {
     "Chaque jour 07:00": { "main": [[{ "node": "Fenêtre (veille)", "type": "main", "index": 0 }]] },
-    "Fenêtre (veille)": { "main": [[{ "node": "Lire commandes Shopify (read-only)", "type": "main", "index": 0 }]] },
+    "Fenêtre (veille)": { "main": [[{ "node": "Obtenir token Shopify", "type": "main", "index": 0 }]] },
+    "Obtenir token Shopify": { "main": [[{ "node": "Lire commandes Shopify (read-only)", "type": "main", "index": 0 }]] },
     "Lire commandes Shopify (read-only)": { "main": [[{ "node": "Préparer SQL upsert", "type": "main", "index": 0 }]] },
     "Préparer SQL upsert": { "main": [[{ "node": "Upsert commandes (miroir)", "type": "main", "index": 0 }]] },
     "Upsert commandes (miroir)": { "main": [[{ "node": "Agrégats du jour (SQL)", "type": "main", "index": 0 }]] },

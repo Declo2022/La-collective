@@ -1,7 +1,7 @@
 {
   "name": "test-shopify-connection",
   "meta": {
-    "description": "Test de connexion Shopify <-> n8n (LECTURE SEULE). Déclenchement manuel : GET /shop.json via le token Admin API (header X-Shopify-Access-Token). Confirme que le credential + les variables d'env fonctionnent. Aucune écriture."
+    "description": "Test de connexion Shopify <-> n8n (LECTURE SEULE, méthode 2026 Dev Dashboard). Déclenchement manuel : (1) obtient un token via client_credentials (Client ID/secret depuis les variables n8n), (2) GET /products.json?limit=5 avec header X-Shopify-Access-Token. Confirme que l'app Dev Dashboard est installée + scopes OK. Aucune écriture."
   },
   "nodes": [
     {
@@ -14,29 +14,51 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/shop.json",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "method": "POST",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/oauth/access_token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "={{ $env.SHOPIFY_CLIENT_ID }}" },
+            { "name": "client_secret", "value": "={{ $env.SHOPIFY_CLIENT_SECRET }}" }
+          ]
+        },
         "options": {}
       },
-      "id": "shop",
-      "name": "GET /shop.json (read-only)",
+      "id": "token",
+      "name": "Obtenir token Shopify",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 0],
-      "credentials": {
-        "httpHeaderAuth": { "id": "SHOPIFY_ADMIN", "name": "Shopify Admin (X-Shopify-Access-Token)" }
-      }
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/products.json?limit=5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Shopify-Access-Token", "value": "={{ $('Obtenir token Shopify').item.json.access_token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "products",
+      "name": "GET /products.json (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "s1", "name": "shop_name", "value": "={{ $json.shop.name }}", "type": "string" },
-            { "id": "s2", "name": "domain", "value": "={{ $json.shop.myshopify_domain }}", "type": "string" },
-            { "id": "s3", "name": "plan", "value": "={{ $json.shop.plan_display_name }}", "type": "string" },
-            { "id": "s4", "name": "currency", "value": "={{ $json.shop.currency }}", "type": "string" },
+            { "id": "s1", "name": "produits_lus", "value": "={{ ($json.products || []).length }}", "type": "number" },
+            { "id": "s2", "name": "premier_produit", "value": "={{ ($json.products && $json.products[0] ? $json.products[0].title : '—') }}", "type": "string" },
+            { "id": "s3", "name": "scopes_token", "value": "={{ $('Obtenir token Shopify').item.json.scope }}", "type": "string" },
+            { "id": "s4", "name": "token_expire_dans_s", "value": "={{ $('Obtenir token Shopify').item.json.expires_in }}", "type": "number" },
             { "id": "s5", "name": "connexion", "value": "OK ✅", "type": "string" }
           ]
         },
@@ -46,12 +68,13 @@
       "name": "Connexion vérifiée",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [440, 0]
+      "position": [660, 0]
     }
   ],
   "connections": {
-    "Lancer le test": { "main": [[{ "node": "GET /shop.json (read-only)", "type": "main", "index": 0 }]] },
-    "GET /shop.json (read-only)": { "main": [[{ "node": "Connexion vérifiée", "type": "main", "index": 0 }]] }
+    "Lancer le test": { "main": [[{ "node": "Obtenir token Shopify", "type": "main", "index": 0 }]] },
+    "Obtenir token Shopify": { "main": [[{ "node": "GET /products.json (read-only)", "type": "main", "index": 0 }]] },
+    "GET /products.json (read-only)": { "main": [[{ "node": "Connexion vérifiée", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" },
   "active": false,

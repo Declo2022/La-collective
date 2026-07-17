@@ -30,15 +30,32 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/oauth/access_token",
+        "sendBody": true, "contentType": "form-urlencoded",
+        "bodyParameters": { "parameters": [
+          { "name": "grant_type", "value": "client_credentials" },
+          { "name": "client_id", "value": "={{ $env.SHOPIFY_CLIENT_ID }}" },
+          { "name": "client_secret", "value": "={{ $env.SHOPIFY_CLIENT_SECRET }}" }
+        ] },
+        "options": {}
+      },
+      "id": "shopify-token", "name": "Obtenir token Shopify",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [640, -80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/pages.json",
-        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "X-Shopify-Access-Token", "value": "={{ $('Obtenir token Shopify').item.json.access_token }}" }
+        ] },
         "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ page: { title: $json.title, body_html: $json.body, published: false } }) }}",
+        "jsonBody": "={{ JSON.stringify({ page: { title: $('Garde-fou : contenu approuvé ?').item.json.title, body_html: $('Garde-fou : contenu approuvé ?').item.json.body, published: false } }) }}",
         "options": {}
       },
       "id": "publish", "name": "Publier la page Shopify (brouillon)",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, -80],
-      "credentials": { "httpHeaderAuth": { "id": "SHOPIFY_ADMIN", "name": "Shopify Admin (X-Shopify-Access-Token)" } }
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [860, -80]
     },
     {
       "parameters": {
@@ -54,7 +71,8 @@
   "connections": {
     "Appel (Execute Workflow)": { "main": [[{ "node": "Garde-fou : contenu approuvé ?", "type": "main", "index": 0 }]] },
     "Garde-fou : contenu approuvé ?": { "main": [[{ "node": "Approuvé ?", "type": "main", "index": 0 }]] },
-    "Approuvé ?": { "main": [[{ "node": "Publier la page Shopify (brouillon)", "type": "main", "index": 0 }], []] },
+    "Approuvé ?": { "main": [[{ "node": "Obtenir token Shopify", "type": "main", "index": 0 }], []] },
+    "Obtenir token Shopify": { "main": [[{ "node": "Publier la page Shopify (brouillon)", "type": "main", "index": 0 }]] },
     "Publier la page Shopify (brouillon)": { "main": [[{ "node": "Journaliser le résultat", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },

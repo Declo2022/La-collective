@@ -4,14 +4,14 @@ Procédure complète, dans l'ordre. Objectif : plateforme en production, sûre.
 
 ## 0. Prérequis (comptes)
 
-| Service  | Ce qu'il faut                    | Scope / plan                                                                                                                               |
-| -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Supabase | projet dev + projet prod         | Pro (PITR/backups)                                                                                                                         |
-| Shopify  | custom app                       | `read_orders`, `read_products`, `read_inventory`, `read_locations` ; **`write_content`** (uniquement pour la publication de contenu gated) |
-| OpenAI   | clé API + projet dédié + plafond | —                                                                                                                                          |
-| Telegram | bot (@BotFather) + groupe privé  | —                                                                                                                                          |
-| n8n      | workspace n8n Cloud              | Starter                                                                                                                                    |
-| Resend   | clé API + domaine e-mail vérifié | Free au départ                                                                                                                             |
+| Service  | Ce qu'il faut                              | Scope / plan                                                                                                                               |
+| -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Supabase | projet dev + projet prod                   | Pro (PITR/backups)                                                                                                                         |
+| Shopify  | app **Dev Dashboard** (client_credentials) | `read_orders`, `read_products`, `read_inventory`, `read_locations` ; **`write_content`** (uniquement pour la publication de contenu gated) |
+| OpenAI   | clé API + projet dédié + plafond           | —                                                                                                                                          |
+| Telegram | bot (@BotFather) + groupe privé            | —                                                                                                                                          |
+| n8n      | workspace n8n Cloud                        | Starter                                                                                                                                    |
+| Resend   | clé API + domaine e-mail vérifié           | Free au départ                                                                                                                             |
 
 ## 1. Base de données (Supabase)
 
@@ -32,13 +32,18 @@ Procédure complète, dans l'ordre. Objectif : plateforme en production, sûre.
 
 Créer dans n8n Cloud (Settings → Credentials) :
 
-| Nom                                      | Type         | Contenu                                 |
-| ---------------------------------------- | ------------ | --------------------------------------- |
-| `Supabase Postgres`                      | Postgres     | connexion DB Supabase (SSL)             |
-| `Telegram Bot`                           | Telegram API | `TELEGRAM_BOT_TOKEN`                    |
-| `Shopify Admin (X-Shopify-Access-Token)` | Header Auth  | header `X-Shopify-Access-Token` = token |
-| `OpenAI (Bearer)`                        | Header Auth  | header `Authorization` = `Bearer <clé>` |
-| `Resend (Bearer)`                        | Header Auth  | header `Authorization` = `Bearer <clé>` |
+| Nom                 | Type         | Contenu                                 |
+| ------------------- | ------------ | --------------------------------------- |
+| `Supabase Postgres` | Postgres     | connexion DB Supabase (SSL)             |
+| `Telegram Bot`      | Telegram API | `TELEGRAM_BOT_TOKEN`                    |
+| `OpenAI (Bearer)`   | Header Auth  | header `Authorization` = `Bearer <clé>` |
+| `Resend (Bearer)`   | Header Auth  | header `Authorization` = `Bearer <clé>` |
+
+> **Shopify (méthode 2026) : pas de credential n8n.** L'app est créée dans le
+> Dev Dashboard. n8n obtient un token via `client_credentials` à chaque
+> exécution (nœud « Obtenir token Shopify »), à partir des variables
+> `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` du coffre n8n. Les custom apps
+> de l'admin (token `shpat_` statique) ne sont plus créables pour les nouvelles apps.
 
 ## 4. Workflows n8n
 

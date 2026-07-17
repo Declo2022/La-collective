@@ -33,10 +33,11 @@ En cas d'erreur, `errorWorkflow: lib-error-handler` (reprise + alerte).
 ## Prérequis
 
 - Migrations appliquées (dont `…190000_wf1_daily_report.sql`).
-- Credentials n8n : `Supabase Postgres`, `Telegram Bot`,
-  `Shopify Admin (X-Shopify-Access-Token)` (scope `read_orders`),
-  `OpenAI (Bearer)`.
-- Variables n8n : `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_API_VERSION`,
+- Credentials n8n : `Supabase Postgres`, `Telegram Bot`, `OpenAI (Bearer)`.
+  (Shopify n'utilise pas de credential : token obtenu par `client_credentials`
+  dans le nœud « Obtenir token Shopify ».)
+- Variables n8n : `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_CLIENT_ID`,
+  `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_API_VERSION`,
   `TELEGRAM_APPROVALS_CHAT_ID`, `OPENAI_SUMMARY_MODEL`.
 
 ## Déploiement

@@ -1,56 +1,66 @@
 # African College
 
-Entreprise e-commerce **pilotée par des agents IA**. La vitrine vit sur Shopify ;
-derrière, un système multi-agents prend en charge le contenu, le merchandising,
-le SEO, le support et la croissance, orchestré par n8n, avec Supabase comme
-mémoire/entrepôt et OpenAI comme moteur de raisonnement. L'humain garde le
-contrôle via un poste de commande Telegram (validation des actions à impact).
+Marque e-commerce **culturelle / collectif d'artistes** sur Shopify. Stratégie :
+**acheter les commodités (SaaS best-in-class), construire uniquement le
+différenciant** — le contenu de marque et la couche de données/pilotage
+first-party. Objectif : machine e-commerce rentable, plusieurs M€, **maintenance
+minimale**. L'humain garde le contrôle via Telegram (validation des actions à impact).
 
-> **État : Phase 1 — Socle données & instrumentation.** Les fondations (Phase 0)
-> sont en place. Le schéma Supabase (21 tables) et les specs des workflows n8n
-> sont posés ; l'ingestion Shopify + analytics se branche ensuite. Aucun agent
-> n'est encore actif.
+> ## 👉 Reprise du projet : lire d'abord [`docs/handoff.md`](docs/handoff.md)
+>
+> C'est le **point d'entrée unique** — état du projet, structure, comment
+> démarrer, règles non négociables. Conçu pour une reprise sans info manquante.
 
-## Architecture
+## Où est quoi
 
-Voir [`docs/architecture.md`](docs/architecture.md) pour le blueprint complet
-(7 couches, feuille de route en 7 phases, matrice d'intégration, risques).
+| Sujet                                  | Document                                                             |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| **Handoff maître (commencer ici)**     | [`docs/handoff.md`](docs/handoff.md)                                 |
+| Architecture technique                 | [`docs/architecture.md`](docs/architecture.md)                       |
+| Organisation (8 agents + 2 humains)    | [`docs/organization.md`](docs/organization.md)                       |
+| Périmètre MVP + décisions              | [`docs/mvp.md`](docs/mvp.md)                                         |
+| Config n8n Cloud + Telegram            | [`docs/setup-n8n-telegram.md`](docs/setup-n8n-telegram.md)           |
+| **Chantier BUY — Klaviyo (3 flows)**   | [`docs/playbooks/klaviyo-flows.md`](docs/playbooks/klaviyo-flows.md) |
+| **Chantier BUY — tableau ROI**         | [`docs/playbooks/roi-tracker.md`](docs/playbooks/roi-tracker.md)     |
+| **Chantier BUILD — moteur de contenu** | [`docs/build/content-engine.md`](docs/build/content-engine.md)       |
+| Bibliothèque de prompts                | [`docs/build/prompts.md`](docs/build/prompts.md)                     |
+| SOP + checklists                       | [`docs/sop.md`](docs/sop.md)                                         |
+| Maintenance                            | [`docs/maintenance.md`](docs/maintenance.md)                         |
+| Plan 90 jours                          | [`docs/roadmap-90days.md`](docs/roadmap-90days.md)                   |
+| Décisions d'architecture (ADR)         | [`docs/decisions/`](docs/decisions/)                                 |
+| Migrations SQL                         | [`supabase/README.md`](supabase/README.md)                           |
+| Workflows n8n                          | [`n8n/workflows/README.md`](n8n/workflows/README.md)                 |
+
+## Structure
 
 ```
-la-collective/
-├── docs/            # architecture, registre des accès, runbook, décisions (ADR)
-├── infra/           # gabarit d'environnement (.env.example)
-├── supabase/        # migrations SQL + seed (Phase 1+)
-├── n8n/             # workflows exportés, versionnés (Phase 2+)
-├── agents/          # orchestrateur & agents IA (Phase 3+)
-├── scripts/         # utilitaires
-└── .github/         # CI (Actions) + template de PR
+docs/            handoff, architecture, playbooks (BUY), build (BUILD), SOP, maintenance, roadmap, ADR
+supabase/        migrations SQL (67 tables + fonctions), testées sur PostgreSQL 16
+n8n/workflows/   10 workflows JSON importables + fiches
+infra/           .env.example (toutes les variables, sans secrets)
+.github/         CI (format, validation migrations/JSON, scan de secrets)
 ```
 
 ## Démarrer (développeur)
 
 ```bash
 npm ci
-npm run format:check      # vérifie le formatage (utilisé par la CI)
-cp infra/.env.example .env # puis remplir les valeurs (jamais commité)
+npm run format:check         # utilisé par la CI
+cp infra/.env.example .env   # remplir les valeurs (jamais commité)
+# puis : docs/handoff.md
 ```
 
-## Feuille de route
+## État
 
-| Phase | Objet                                      | État         |
-| ----- | ------------------------------------------ | ------------ |
-| 0     | Fondations & gouvernance                   | ✅ fait      |
-| 1     | Socle données & instrumentation            | **en cours** |
-| 2     | Backbone d'automatisation (n8n)            | à venir      |
-| 3     | Couche agents — Contenu & SEO              | à venir      |
-| 4     | Poste de commande humain (Telegram / HITL) | à venir      |
-| 5     | Agents métier avancés                      | à venir      |
-| 6     | Boucle autonome & durcissement             | à venir      |
+**Fondations écrites & testées (SQL sur PostgreSQL 16), pas encore en production.**
+Provisionner les comptes puis suivre `docs/handoff.md` §4. Chantier BUY (SaaS) à
+mettre en prod ; chantier BUILD (contenu) prêt à déployer.
 
 ## Sécurité
 
-Aucun secret n'est stocké dans le dépôt. Voir
-[`docs/access-registry.md`](docs/access-registry.md) pour la gouvernance des accès.
+Aucun secret dans le dépôt (scan Gitleaks en CI). Voir
+[`docs/access-registry.md`](docs/access-registry.md). Règles non négociables :
+[`docs/handoff.md`](docs/handoff.md) §5.
 
 ---
 

@@ -6,10 +6,10 @@ node_modules/
 .env.*
 !.env.example
 
-# Logs & artefacts
+# Logs & artefacts (build JS = racine uniquement, ne pas ignorer docs/build/)
 *.log
-dist/
-build/
+/dist/
+/build/
 coverage/
 
 # OS / éditeurs

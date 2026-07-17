@@ -1,0 +1,136 @@
+{
+  "name": "report-shopify-daily-cron",
+  "meta": {
+    "description": "Workflow #1 — Rapport Shopify quotidien. Chaque matin : lit (LECTURE SEULE) les commandes de la veille, les upsert en local (fn_upsert_shopify_orders), calcule les agrégats en SQL (fn_daily_shopify_report), demande à l'IA un court résumé (modèle mini, coût minimal), envoie sur Telegram, journalise le coût. Aucune écriture Shopify."
+  },
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "days", "triggerAtHour": 7 }] } },
+      "id": "cron",
+      "name": "Chaque jour 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "d1", "name": "since", "value": "={{ $today.minus({ days: 1 }).toISO() }}", "type": "string" },
+            { "id": "d2", "name": "report_date", "value": "={{ $today.minus({ days: 1 }).toFormat('yyyy-MM-dd') }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "dates",
+      "name": "Fenêtre (veille)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/orders.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "status", "value": "any" },
+            { "name": "created_at_min", "value": "={{ $json.since }}" },
+            { "name": "limit", "value": "250" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "shopify-read",
+      "name": "Lire commandes Shopify (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 0],
+      "credentials": { "httpHeaderAuth": { "id": "SHOPIFY_ADMIN", "name": "Shopify Admin (X-Shopify-Access-Token)" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select fn_upsert_shopify_orders($1::jsonb) as upserted;",
+        "options": { "queryReplacement": "={{ JSON.stringify($json.orders || []) }}" }
+      },
+      "id": "upsert",
+      "name": "Upsert commandes (miroir)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [600, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select fn_daily_shopify_report($1::date) as report;",
+        "options": { "queryReplacement": "={{ $('Fenêtre (veille)').item.json.report_date }}" }
+      },
+      "id": "report",
+      "name": "Agrégats du jour (SQL)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [800, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini'), max_tokens: 220, messages: [ { role: 'system', content: \"Tu es l'assistant d'African College. Résume en 3-4 lignes claires, en français, le rapport quotidien. Chiffres uniquement fournis, n'invente rien.\" }, { role: 'user', content: JSON.stringify($json.report) } ] }) }}",
+        "options": {}
+      },
+      "id": "summary",
+      "name": "Résumé IA (mini, coût min.)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 0],
+      "credentials": { "httpHeaderAuth": { "id": "OPENAI", "name": "OpenAI (Bearer)" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select fn_log_event('llm_call','daily_report_summary','workflow',null,'report-shopify-daily-cron',null,null,null,'info', $1::int, $2::numeric, null, null, jsonb_build_object('model', $3)) as event_id;",
+        "options": { "queryReplacement": "={{ $json.usage.total_tokens }},={{ ($json.usage.total_tokens/1000000.0*0.6).toFixed(6) }},={{ $json.model }}" }
+      },
+      "id": "logcost",
+      "name": "Journaliser le coût IA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1200, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
+        "text": "=📊 *Rapport African College* — {{ $('Fenêtre (veille)').item.json.report_date }}\\n\\n{{ $('Résumé IA (mini, coût min.)').item.json.choices[0].message.content }}\\n\\nCA: {{ $('Agrégats du jour (SQL)').item.json.report.revenue }} € · Commandes: {{ $('Agrégats du jour (SQL)').item.json.report.orders }} · Panier: {{ $('Agrégats du jour (SQL)').item.json.report.aov }} € · Remb.: {{ $('Agrégats du jour (SQL)').item.json.report.refunds }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "telegram",
+      "name": "Envoyer le rapport (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1400, 0],
+      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+    }
+  ],
+  "connections": {
+    "Chaque jour 07:00": { "main": [[{ "node": "Fenêtre (veille)", "type": "main", "index": 0 }]] },
+    "Fenêtre (veille)": { "main": [[{ "node": "Lire commandes Shopify (read-only)", "type": "main", "index": 0 }]] },
+    "Lire commandes Shopify (read-only)": { "main": [[{ "node": "Upsert commandes (miroir)", "type": "main", "index": 0 }]] },
+    "Upsert commandes (miroir)": { "main": [[{ "node": "Agrégats du jour (SQL)", "type": "main", "index": 0 }]] },
+    "Agrégats du jour (SQL)": { "main": [[{ "node": "Résumé IA (mini, coût min.)", "type": "main", "index": 0 }]] },
+    "Résumé IA (mini, coût min.)": { "main": [[{ "node": "Journaliser le coût IA", "type": "main", "index": 0 }]] },
+    "Journaliser le coût IA": { "main": [[{ "node": "Envoyer le rapport (Telegram)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
+  "active": false,
+  "tags": [{ "name": "report" }, { "name": "mvp" }, { "name": "wf-1" }]
+}

@@ -41,14 +41,26 @@ Dernier audit : révision « mode exécution ». Méthode : audit → correction
 
 ## Risques restants (et mitigations)
 
-| Risque                                             | Sévérité | Mitigation / statut                                                                    |
-| -------------------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| Workflows n8n non exécutés « live »                | moyen    | Logique SQL testée ; runs réels à faire à la mise en service (checklist deployment §5) |
-| Ingestion Shopify limitée au pull quotidien (#1)   | faible   | Acceptable MVP ; webhooks temps réel disponibles au schéma (Phase 2) si besoin         |
-| PII client (RGPD)                                  | moyen    | Email haché, RLS strict, région UE, rétention — respecté ; DPA fournisseurs à signer   |
-| Dépendance API tierces (rate limits)               | faible   | Backoff + job_queue + dead-letter + alerte                                             |
-| `gitleaks-action` peut requérir une licence en org | faible   | Public repo : gratuit ; sinon retirer le job ou fournir `GITLEAKS_LICENSE`             |
-| Coût OpenAI variable                               | faible   | Plafond quotidien + garde-fou + coût attribué                                          |
+| Risque                                           | Sévérité | Mitigation / statut                                                                    |
+| ------------------------------------------------ | -------- | -------------------------------------------------------------------------------------- |
+| Workflows n8n non exécutés « live »              | moyen    | Logique SQL testée ; runs réels à faire à la mise en service (checklist deployment §5) |
+| Ingestion Shopify limitée au pull quotidien (#1) | faible   | Acceptable MVP ; webhooks temps réel disponibles au schéma (Phase 2) si besoin         |
+| PII client (RGPD)                                | moyen    | Email haché, RLS strict, région UE, rétention — respecté ; DPA fournisseurs à signer   |
+| Dépendance API tierces (rate limits)             | faible   | Backoff + job_queue + dead-letter + alerte                                             |
+| Coût OpenAI variable                             | faible   | Plafond quotidien + garde-fou + coût attribué                                          |
+
+## Corrections appliquées (boucle audit → correction)
+
+- **SQL comma-safe** : les nœuds Postgres passant du texte libre / JSON / vecteurs
+  utilisaient `queryReplacement` (n8n découpe sur les virgules → casse en prod).
+  Refactorés en SQL construit par Code node avec **dollar-quoting** (texte) et
+  **vecteurs numériques inlinés** — robuste aux virgules/guillemets/newlines.
+  (report-shopify, content-draft, rag-ingest, lib-error-handler, approval-human, report-sales-margin)
+- **Scan de secrets CI** : passage de `gitleaks-action` (licence requise en org)
+  au **binaire gitleaks** (sans licence).
+- **CI migrations** : job appliquant toutes les migrations sur
+  `pgvector/pgvector:pg16` (vector/HNSW/RAG/audit réellement testés).
+- **Validation JS** : syntaxe des 9 Code nodes vérifiée (`node --check`).
 
 ## Score de préparation production
 

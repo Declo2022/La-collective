@@ -46,8 +46,8 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select fn_log_event('llm_call','sales_margin_summary','workflow',null,'report-sales-margin-cron',null,null,null,'info', $1::int, $2::numeric, null, null, jsonb_build_object('model',$3)) as event_id;",
-        "options": { "queryReplacement": "={{ $json.usage.total_tokens }},={{ ($json.usage.total_tokens/1000000.0*0.6).toFixed(6) }},={{ $json.model }}" }
+        "query": "=select fn_log_event('llm_call','sales_margin_summary','workflow',null,'report-sales-margin-cron',null,null,null,'info', {{ $json.usage.total_tokens }}, {{ ($json.usage.total_tokens/1000000.0*0.6).toFixed(6) }}, null, null, '{}'::jsonb) as event_id;",
+        "options": {}
       },
       "id": "logcost",
       "name": "Journaliser le coût IA",

@@ -1,39 +1,40 @@
 {
   "name": "rag-ingest-document-task",
   "meta": {
-    "description": "Moteur de contenu (BUILD) — ingère un document dans le RAG : crée l'entrée documents, découpe en chunks, calcule les embeddings (1536) et les stocke. Entrées : title, source_type, source_uri, entity_type, entity_id, text."
+    "description": "Moteur de contenu (BUILD) — ingère un document dans le RAG : documents -> chunks -> embeddings (1536). SQL construit avec dollar-quoting (texte) et vecteur numérique inliné, robuste aux virgules/guillemets. Entrées : title, source_type, source_uri, entity_type, entity_id, text."
   },
   "nodes": [
     {
-      "parameters": {
-        "workflowInputs": { "values": [
-          { "name": "title", "type": "string" },
-          { "name": "source_type", "type": "string" },
-          { "name": "source_uri", "type": "string" },
-          { "name": "entity_type", "type": "string" },
-          { "name": "entity_id", "type": "string" },
-          { "name": "text", "type": "string" }
-        ] }
-      },
+      "parameters": { "workflowInputs": { "values": [
+        { "name": "title", "type": "string" },
+        { "name": "source_type", "type": "string" },
+        { "name": "source_uri", "type": "string" },
+        { "name": "entity_type", "type": "string" },
+        { "name": "entity_id", "type": "string" },
+        { "name": "text", "type": "string" }
+      ] } },
       "id": "trigger", "name": "Appel (Execute Workflow)",
       "type": "n8n-nodes-base.executeWorkflowTrigger", "typeVersion": 1.1, "position": [0, 0]
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "insert into documents(title, source_type, source_uri, entity_type, entity_id, checksum, status) values ($1,$2,$3,nullif($4,''),nullif($5,'')::uuid, md5($6), 'chunked') on conflict (checksum) where checksum is not null do update set status='chunked' returning id as document_id;",
-        "options": { "queryReplacement": "={{ $json.title }},={{ $json.source_type }},={{ $json.source_uri }},={{ $json.entity_type }},={{ $json.entity_id }},={{ $json.text }}" }
+        "jsCode": "const i = $json;\nconst q = (s, tag) => String(s == null ? '' : s).split(tag).join('');\nconst et = (i.entity_type || '').replace(/[^a-z_]/gi, '');\nconst entitySql = et ? `'${et}'` : 'null';\nconst eid = (i.entity_id || '').match(/^[0-9a-f-]{36}$/i) ? `'${i.entity_id}'::uuid` : 'null';\nconst sql = `insert into documents(title, source_type, source_uri, entity_type, entity_id, checksum, status) values ($t$${q(i.title,'$t$')}$t$, $st$${q(i.source_type,'$st$')}$st$, $su$${q(i.source_uri,'$su$')}$su$, ${entitySql}, ${eid}, md5($tx$${q(i.text,'$tx$')}$tx$), 'chunked') on conflict (checksum) where checksum is not null do update set status='chunked' returning id as document_id;`;\nreturn [{ json: { sql } }];"
       },
+      "id": "prep-doc", "name": "Préparer SQL document",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [220, 0]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
       "id": "doc", "name": "Créer le document",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [220, 0],
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [420, 0],
       "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
     },
     {
       "parameters": {
-        "jsCode": "const text = $('Appel (Execute Workflow)').item.json.text || '';\nconst docId = $json.document_id;\n// Chunking ~800 caractères avec léger chevauchement, coupe sur les paragraphes.\nconst parts = text.split(/\\n\\n+/);\nconst chunks = []; let buf = '';\nfor (const p of parts) {\n  if ((buf + '\\n\\n' + p).length > 800 && buf) { chunks.push(buf); buf = p; }\n  else { buf = buf ? buf + '\\n\\n' + p : p; }\n}\nif (buf) chunks.push(buf);\nreturn chunks.map((c, i) => ({ json: { document_id: docId, chunk_index: i, content: c } }));"
+        "jsCode": "const text = $('Appel (Execute Workflow)').item.json.text || '';\nconst docId = $json.document_id;\nconst parts = text.split(/\\n\\n+/);\nconst chunks = []; let buf = '';\nfor (const p of parts) {\n  if ((buf + '\\n\\n' + p).length > 800 && buf) { chunks.push(buf); buf = p; }\n  else { buf = buf ? buf + '\\n\\n' + p : p; }\n}\nif (buf) chunks.push(buf);\nreturn chunks.map((c, idx) => ({ json: { document_id: docId, chunk_index: idx, content: c } }));"
       },
       "id": "chunk", "name": "Découper en chunks",
-      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [440, 0]
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [620, 0]
     },
     {
       "parameters": {
@@ -44,25 +45,30 @@
         "options": {}
       },
       "id": "embed", "name": "Embedding du chunk",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, 0],
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [820, 0],
       "credentials": { "httpHeaderAuth": { "id": "OPENAI", "name": "OpenAI (Bearer)" } }
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "insert into document_chunks(document_id, chunk_index, content, embedding) values ($1::uuid, $2::int, $3, ('[' || $4 || ']')::vector) on conflict (document_id, chunk_index) do update set content=excluded.content, embedding=excluded.embedding;",
-        "options": { "queryReplacement": "={{ $('Découper en chunks').item.json.document_id }},={{ $('Découper en chunks').item.json.chunk_index }},={{ $('Découper en chunks').item.json.content }},={{ $json.data[0].embedding.join(',') }}" }
+        "jsCode": "const ch = $('Découper en chunks').item.json;\nconst emb = ($json.data[0].embedding || []).join(',');\nconst content = String(ch.content || '').split('$c$').join('');\nconst sql = `insert into document_chunks(document_id, chunk_index, content, embedding) values ('${ch.document_id}'::uuid, ${parseInt(ch.chunk_index,10)}, $c$${content}$c$, '[${emb}]'::vector) on conflict (document_id, chunk_index) do update set content=excluded.content, embedding=excluded.embedding;`;\nreturn [{ json: { sql } }];"
       },
+      "id": "prep-store", "name": "Préparer SQL chunk",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [1020, 0]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
       "id": "store", "name": "Stocker le chunk + embedding",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [880, 0],
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1220, 0],
       "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
     }
   ],
   "connections": {
-    "Appel (Execute Workflow)": { "main": [[{ "node": "Créer le document", "type": "main", "index": 0 }]] },
+    "Appel (Execute Workflow)": { "main": [[{ "node": "Préparer SQL document", "type": "main", "index": 0 }]] },
+    "Préparer SQL document": { "main": [[{ "node": "Créer le document", "type": "main", "index": 0 }]] },
     "Créer le document": { "main": [[{ "node": "Découper en chunks", "type": "main", "index": 0 }]] },
     "Découper en chunks": { "main": [[{ "node": "Embedding du chunk", "type": "main", "index": 0 }]] },
-    "Embedding du chunk": { "main": [[{ "node": "Stocker le chunk + embedding", "type": "main", "index": 0 }]] }
+    "Embedding du chunk": { "main": [[{ "node": "Préparer SQL chunk", "type": "main", "index": 0 }]] },
+    "Préparer SQL chunk": { "main": [[{ "node": "Stocker le chunk + embedding", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
   "active": false,

@@ -1,65 +1,37 @@
 {
   "name": "lib-error-handler",
   "meta": {
-    "description": "Workflow #10 — Brique réutilisable de gestion d'erreur. Appelée par les autres workflows (Execute Workflow) : journalise l'erreur dans event_log (fn_log_event) et met le job en file avec reprise auto (fn_enqueue_job). Entrées attendues : kind, payload, error, workflow_key, trace_id."
+    "description": "Workflow #10 — Brique réutilisable de gestion d'erreur (Execute Workflow OU errorWorkflow). Journalise l'erreur (fn_log_event) et met le job en file avec reprise (fn_enqueue_job). SQL construit avec dollar-quoting (robuste au texte d'erreur / JSON). Entrées : kind, payload, error, workflow_key, trace_id (tolère aussi le format erreur natif n8n)."
   },
   "nodes": [
     {
-      "parameters": {
-        "workflowInputs": {
-          "values": [
-            { "name": "kind", "type": "string" },
-            { "name": "payload", "type": "object" },
-            { "name": "error", "type": "string" },
-            { "name": "workflow_key", "type": "string" },
-            { "name": "trace_id", "type": "string" }
-          ]
-        }
-      },
-      "id": "wf-trigger",
-      "name": "Appel (Execute Workflow)",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [0, 0]
+      "parameters": { "workflowInputs": { "values": [
+        { "name": "kind", "type": "string" },
+        { "name": "payload", "type": "object" },
+        { "name": "error", "type": "string" },
+        { "name": "workflow_key", "type": "string" },
+        { "name": "trace_id", "type": "string" }
+      ] } },
+      "id": "trigger", "name": "Appel (Execute Workflow)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger", "typeVersion": 1.1, "position": [0, 0]
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "select fn_log_event('error', 'workflow_error', 'workflow', null, $1, null, null, null, 'error', null, null, null, nullif($5,'')::uuid, jsonb_build_object('error', $3)) as event_id;",
-        "options": {
-          "queryReplacement": "={{ $json.workflow_key }},={{ $json.payload }},={{ $json.error }},={{ $json.kind }},={{ $json.trace_id }}"
-        }
+        "jsCode": "const i = $json;\nconst q = (s, tag) => String(s == null ? '' : (typeof s === 'object' ? JSON.stringify(s) : s)).split(tag).join('');\n// Tolère le format d'erreur natif n8n (errorWorkflow) ou l'appel explicite.\nconst kind = i.kind || (i.execution && 'workflow_error') || 'workflow_error';\nconst wk = i.workflow_key || (i.workflow && i.workflow.name) || 'unknown';\nconst error = i.error || (i.execution && i.execution.error && i.execution.error.message) || 'unknown';\nconst payload = i.payload || {};\nconst trace = String(i.trace_id || '').match(/^[0-9a-f-]{36}$/i) ? `'${i.trace_id}'::uuid` : 'null';\nconst sql = [\n  `select fn_log_event('error','workflow_error','workflow',null, $wk$${q(wk,'$wk$')}$wk$, null,null,null,'error',null,null,null, ${trace}, jsonb_build_object('error', $er$${q(error,'$er$')}$er$));`,\n  `select fn_enqueue_job($k$${q(kind,'$k$')}$k$, $pl$${q(payload,'$pl$')}$pl$::jsonb, 5, 30, $wk$${q(wk,'$wk$')}$wk$, ${trace});`\n].join('\\n');\nreturn [{ json: { sql } }];"
       },
-      "id": "log-error",
-      "name": "Journaliser l'erreur",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [220, 0],
-      "credentials": {
-        "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" }
-      }
+      "id": "prep", "name": "Préparer SQL",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [220, 0]
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "select fn_enqueue_job($1, $2::jsonb, 5, 30, $3, nullif($4,'')::uuid) as job_id;",
-        "options": {
-          "queryReplacement": "={{ $('Appel (Execute Workflow)').item.json.kind }},={{ $('Appel (Execute Workflow)').item.json.payload }},={{ $('Appel (Execute Workflow)').item.json.workflow_key }},={{ $('Appel (Execute Workflow)').item.json.trace_id }}"
-        }
-      },
-      "id": "enqueue-retry",
-      "name": "Mettre en file (reprise)",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [440, 0],
-      "credentials": {
-        "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" }
-      }
+      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
+      "id": "exec", "name": "Journaliser + mettre en file",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [420, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
     }
   ],
   "connections": {
-    "Appel (Execute Workflow)": { "main": [[{ "node": "Journaliser l'erreur", "type": "main", "index": 0 }]] },
-    "Journaliser l'erreur": { "main": [[{ "node": "Mettre en file (reprise)", "type": "main", "index": 0 }]] }
+    "Appel (Execute Workflow)": { "main": [[{ "node": "Préparer SQL", "type": "main", "index": 0 }]] },
+    "Préparer SQL": { "main": [[{ "node": "Journaliser + mettre en file", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" },
   "active": false,

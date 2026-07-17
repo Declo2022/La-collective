@@ -1,18 +1,16 @@
 {
   "name": "content-draft-task",
   "meta": {
-    "description": "Moteur de contenu (BUILD) — génère un BROUILLON de contenu de marque à partir de la KB/RAG, puis crée une proposition qui part en validation Telegram (jamais publié sans humain). Entrées : content_type, brief, entity_type, target_shopify_id. Coût maîtrisé (modèle + contexte limité)."
+    "description": "Moteur de contenu (BUILD) — génère un BROUILLON depuis la KB/RAG, puis crée une proposition qui part en validation Telegram (jamais publié sans humain). SQL construit avec dollar-quoting (robuste au texte) et vecteur numérique inliné. Entrées : content_type, brief, entity_type, target_shopify_id."
   },
   "nodes": [
     {
-      "parameters": {
-        "workflowInputs": { "values": [
-          { "name": "content_type", "type": "string" },
-          { "name": "brief", "type": "string" },
-          { "name": "entity_type", "type": "string" },
-          { "name": "target_shopify_id", "type": "number" }
-        ] }
-      },
+      "parameters": { "workflowInputs": { "values": [
+        { "name": "content_type", "type": "string" },
+        { "name": "brief", "type": "string" },
+        { "name": "entity_type", "type": "string" },
+        { "name": "target_shopify_id", "type": "number" }
+      ] } },
       "id": "trigger", "name": "Appel (Execute Workflow)",
       "type": "n8n-nodes-base.executeWorkflowTrigger", "typeVersion": 1.1, "position": [0, 0]
     },
@@ -30,12 +28,15 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "select string_agg(content, E'\\n---\\n') as context, jsonb_agg(jsonb_build_object('document_id', document_id, 'similarity', round(similarity::numeric,3))) as sources from fn_rag_search($1::vector, 6, nullif($2,''));",
-        "options": { "queryReplacement": "={{ '[' + $json.data[0].embedding.join(',') + ']' }},={{ $('Appel (Execute Workflow)').item.json.entity_type }}" }
+        "jsCode": "// Vecteur numérique inliné (sûr) + entity_type filtré (anti-injection).\nconst emb = ($json.data[0].embedding || []).join(',');\nconst etRaw = $('Appel (Execute Workflow)').item.json.entity_type || '';\nconst et = etRaw.replace(/[^a-z_]/gi, '');\nconst entitySql = et ? `'${et}'` : 'null';\nconst sql = `select coalesce(string_agg(content, E'\\n---\\n'),'') as context, coalesce(jsonb_agg(jsonb_build_object('document_id',document_id,'similarity',round(similarity::numeric,3))),'[]'::jsonb) as sources from fn_rag_search('[${emb}]'::vector, 6, ${entitySql});`;\nreturn [{ json: { sql } }];"
       },
+      "id": "prep-rag", "name": "Préparer SQL RAG",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [440, 0]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
       "id": "rag", "name": "Recherche RAG (contexte cité)",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [440, 0],
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [640, 0],
       "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
     },
     {
@@ -43,30 +44,34 @@
         "method": "POST", "url": "https://api.openai.com/v1/chat/completions",
         "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
         "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_CONTENT_MODEL || 'gpt-4.1'), max_tokens: 1200, messages: [ { role: 'system', content: \"Tu es le Rédacteur d'African College, marque culturelle portée par un collectif d'artistes. Écris un contenu fidèle au ton de la marque, UNIQUEMENT à partir du CONTEXTE fourni (base de connaissances) — n'invente jamais. Si le contexte est insuffisant, dis-le. Rends un titre et un corps en français, prêts à relire.\" }, { role: 'user', content: 'TYPE: ' + $('Appel (Execute Workflow)').item.json.content_type + '\\nBRIEF: ' + $('Appel (Execute Workflow)').item.json.brief + '\\n\\nCONTEXTE:\\n' + ($json.context || '(vide)') } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_CONTENT_MODEL || 'gpt-4.1'), max_tokens: 1200, messages: [ { role: 'system', content: \"Tu es le Rédacteur d'African College, marque culturelle d'un collectif d'artistes. Écris un contenu fidèle au ton, UNIQUEMENT à partir du CONTEXTE (base de connaissances) — n'invente jamais. Si le contexte est insuffisant, dis-le. Rends un titre (1re ligne) puis un corps en français.\" }, { role: 'user', content: 'TYPE: ' + $('Appel (Execute Workflow)').item.json.content_type + '\\nBRIEF: ' + $('Appel (Execute Workflow)').item.json.brief + '\\n\\nCONTEXTE:\\n' + ($json.context || '(vide)') } ] }) }}",
         "options": {}
       },
       "id": "generate", "name": "Générer le brouillon",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, 0],
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [860, 0],
       "credentials": { "httpHeaderAuth": { "id": "OPENAI", "name": "OpenAI (Bearer)" } }
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "select fn_create_content_proposal($1, $2, $3, nullif($4,'')::bigint, null, $5::numeric, $6::jsonb) as res;",
-        "options": { "queryReplacement": "={{ $('Appel (Execute Workflow)').item.json.content_type }},={{ ($json.choices[0].message.content.split('\\n')[0]).substring(0,120) }},={{ $json.choices[0].message.content }},={{ $('Appel (Execute Workflow)').item.json.target_shopify_id }},={{ ($json.usage.total_tokens/1000000.0*3).toFixed(6) }},={{ JSON.stringify($('Recherche RAG (contexte cité)').item.json.sources || []) }}"
-        }
+        "jsCode": "// Dollar-quoting : immunise virgules/guillemets/newlines du contenu généré.\nconst strip = (s, tag) => String(s == null ? '' : s).split(tag).join('');\nconst content = $json.choices[0].message.content || '';\nconst title = strip(content.split('\\n')[0].substring(0, 120), '$ttl$');\nconst body = strip(content, '$bdy$');\nconst ct = strip($('Appel (Execute Workflow)').item.json.content_type || 'article', '$ct$');\nconst sources = strip(JSON.stringify($('Recherche RAG (contexte cité)').item.json.sources || []), '$src$');\nconst target = $('Appel (Execute Workflow)').item.json.target_shopify_id;\nconst targetSql = (target === undefined || target === null || target === '') ? 'null' : `${parseInt(target, 10)}`;\nconst cost = ($json.usage.total_tokens / 1000000.0 * 3).toFixed(6);\nconst sql = `select fn_create_content_proposal($ct$${ct}$ct$, $ttl$${title}$ttl$, $bdy$${body}$bdy$, ${targetSql}, null, ${cost}, $src$${sources}$src$::jsonb) as res;`;\nreturn [{ json: { sql } }];"
       },
+      "id": "prep-propose", "name": "Préparer SQL proposition",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [1080, 0]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
       "id": "propose", "name": "Créer la proposition (→ validation)",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [880, 0],
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1280, 0],
       "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
     }
   ],
   "connections": {
     "Appel (Execute Workflow)": { "main": [[{ "node": "Embedding du brief", "type": "main", "index": 0 }]] },
-    "Embedding du brief": { "main": [[{ "node": "Recherche RAG (contexte cité)", "type": "main", "index": 0 }]] },
+    "Embedding du brief": { "main": [[{ "node": "Préparer SQL RAG", "type": "main", "index": 0 }]] },
+    "Préparer SQL RAG": { "main": [[{ "node": "Recherche RAG (contexte cité)", "type": "main", "index": 0 }]] },
     "Recherche RAG (contexte cité)": { "main": [[{ "node": "Générer le brouillon", "type": "main", "index": 0 }]] },
-    "Générer le brouillon": { "main": [[{ "node": "Créer la proposition (→ validation)", "type": "main", "index": 0 }]] }
+    "Générer le brouillon": { "main": [[{ "node": "Préparer SQL proposition", "type": "main", "index": 0 }]] },
+    "Préparer SQL proposition": { "main": [[{ "node": "Créer la proposition (→ validation)", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
   "active": false,

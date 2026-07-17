@@ -1,104 +1,65 @@
-# Workflows n8n — Phase 1
+# Workflows n8n — MVP (10 workflows)
 
-Six workflows, tous en **écriture vers Supabase uniquement** (aucune écriture
-Shopify en Phase 1). Le JSON importable est construit dans **n8n Cloud** (avec
-les credentials), puis **exporté ici** (`*.json`) pour être versionné.
+Périmètre resserré : **10 workflows**. **Shopify en lecture seule** (aucune
+écriture). Toute action externe ou commerciale (#7 prospection, #8 service
+client) passe par une **validation humaine Telegram** (#9) avant envoi.
 
-Ce dossier contient d'abord les **spécifications** ; les exports JSON arrivent
-au fur et à mesure de la construction dans n8n Cloud.
+Les workflows sont construits dans **n8n Cloud** (avec les credentials), puis
+exportés ici (`*.json`) pour être versionnés. Le cœur logique vit dans des
+**fonctions Postgres** (migration `…170000_wf10_observability_core.sql`), déjà
+testées, que les workflows appellent — les nœuds n8n restent fins.
 
-Déclencheurs : `webhook` (temps réel) · `cron` (planifié).
+## Ordre de développement (par priorité)
 
----
+| Lot | Workflows |
+| --- | --- |
+| **A — socle** | #10 Journalisation/coûts/erreurs · #9 Validation Telegram |
+| **B — lecture** | #1 Rapport Shopify · #3 Anomalies · #2 Ventes & marges · #4 Veille SEO |
+| **C — contenu** | #5 Calendrier éditorial · #6 Brouillons de contenu |
+| **D — actions validées** | #8 Service client · #7 Prospection partenaires |
 
-## 1. `shopify-webhook-ingest` — webhook
-
-**But :** ingérer les événements Shopify en temps réel.
-
-**Étapes :**
-
-1. Webhook n8n (un par topic, ou un routeur).
-2. Vérifier la signature **HMAC** (`SHOPIFY_WEBHOOK_SECRET`). Si invalide → `hmac_valid=false`, statut `failed`, stop.
-3. Déduplication par `webhook_id` (en-tête `X-Shopify-Webhook-Id`) → si déjà vu, statut `skipped`.
-4. Insérer l'événement brut dans `webhook_events`.
-5. Router selon `topic` et **upsert** la table miroir (comparer `shopify_updated_at`, ignorer si plus ancien).
-   - Pour `customers/*` : calculer `email_hash` (SHA-256), **ne pas** stocker l'email en clair.
-6. Marquer `webhook_events.status = 'processed'`, `processed_at = now()`.
-
-**Écrit :** `webhook_events`, `products`, `product_variants`, `collections`, `orders`, `order_line_items`, `customers`, `inventory_levels`.
-
-**Topics :** `products/create|update|delete`, `orders/create|updated`, `inventory_levels/update`, `collections/update`, `customers/create|update`.
+Chaque workflow est développé, testé et validé avant de passer au suivant.
 
 ---
 
-## 2. `shopify-catalog-backfill` — cron (nuit)
+## ✅ #10 — Journalisation, coûts & erreurs (en cours)
 
-**But :** synchronisation initiale et réconciliation périodique du catalogue.
+**Cœur SQL (testé sur PostgreSQL 16)** — `…170000_wf10_observability_core.sql` :
 
-**Étapes :**
+| Fonction | Rôle |
+| --- | --- |
+| `fn_log_event(...)` | écrit une entrée `event_log` (+ attribue le coût) |
+| `fn_track_cost(...)` | agrège le coût du jour dans `cost_ledger` |
+| `fn_cost_status(cap)` | usage IA du jour vs plafond → `ok` / `warn` (≥80%) / `halt` (≥100%) |
+| `fn_enqueue_job(...)` | met un job en file (durable) |
+| `fn_claim_due_jobs(n)` | réclame les jobs dus (verrou concurrentiel) |
+| `fn_job_succeeded(id)` | marque un job réussi |
+| `fn_job_failed(id, err)` | reprise (backoff exponentiel) puis dead-letter |
+| vue `v_cost_today` | coût du jour ventilé par source |
 
-1. Lancer une **bulk operation** GraphQL (`bulkOperationRunQuery`) sur produits/variantes/collections/emplacements/stock.
-2. **Polling** du statut jusqu'à `COMPLETED` ; récupérer l'URL du fichier **JSONL**.
-3. Streamer le JSONL, **upsert** par lots dans les tables miroir.
-4. Mettre à jour `sync_state` (`resource='products'…`, `last_synced_at`, `status`).
+**Workflows n8n (à importer dans n8n Cloud) :**
 
-**Écrit :** tables du domaine A + `sync_state`.
+- `monitor-cost-guardrail-cron.json` — cron horaire → `fn_cost_status` → alerte
+  Telegram si `warn`/`halt`. Garde-fou coût (protège la marge).
+- `lib-error-handler.json` — brique appelée par les autres workflows : journalise
+  l'erreur (`fn_log_event`) et met en file avec reprise (`fn_enqueue_job`).
 
----
+> Les fonctions SQL sont validées ici. Les deux JSON n8n sont **importables** et
+> doivent être exécutés dans n8n Cloud (credentials `Supabase Postgres` +
+> `Telegram Bot`) pour la validation « live » — impossible à exécuter hors n8n.
 
-## 3. `ga4-daily-pull` — cron (quotidien)
-
-**But :** agrégats d'audience/conversion par page et source.
-
-**Étapes :**
-
-1. Appeler la **GA4 Data API** (service account Google) sur une fenêtre **J-3 → J-1** (rattrapage de la latence).
-2. Dimensions : `date`, `pagePath`, `sessionSourceMedium` ; métriques : sessions, users, engaged, conversions, revenue.
-3. **Upsert** dans `ga4_daily` (clé `date,page_path,source_medium`).
-4. Mettre à jour `sync_state` (`resource='ga4'`).
-
-**Écrit :** `ga4_daily`, `sync_state`.
-
----
-
-## 4. `gsc-daily-pull` — cron (quotidien)
-
-**But :** performance SEO (requêtes, positions, CTR).
-
-**Étapes :**
-
-1. Appeler la **Search Analytics API** (`searchanalytics.query`) sur J-3 (délai GSC ~2-3 j).
-2. Dimensions : `date`, `query`, `page`.
-3. **Upsert** dans `gsc_daily` (clé `date,query,page`).
-4. Mettre à jour `sync_state` (`resource='gsc'`).
-
-**Écrit :** `gsc_daily`, `sync_state`.
+**Reste à faire pour clôturer #10 :** provisionner n8n Cloud, importer les 2
+workflows, brancher les credentials, faire un run réel (vérifier l'alerte
+Telegram à 80%).
 
 ---
 
-## 5. `clarity-daily-pull` — cron (quotidien)
+## Prochains workflows
 
-**But :** signaux UX (rage/dead clicks, scroll).
+#9, puis lot B, etc. Décisions spécifiques déjà prises (voir `docs/mvp.md`) :
 
-**Étapes :**
-
-1. Appeler la **Data Export API** de Clarity (`CLARITY_API_TOKEN`).
-2. Agréger par `page_path` (signal qualitatif, granularité limitée).
-3. **Upsert** dans `clarity_daily` (clé `date,page_path`).
-4. Mettre à jour `sync_state` (`resource='clarity'`).
-
-**Écrit :** `clarity_daily`, `sync_state`.
-
----
-
-## 6. `sync-health-monitor` — cron (horaire)
-
-**But :** garde-fou de fraîcheur des données ; premier usage du canal Telegram.
-
-**Étapes :**
-
-1. Lire `sync_state` : détecter les ressources non rafraîchies dans leur SLA.
-2. Lire `webhook_events` : taux d'échec (`status='failed'`) sur la dernière heure.
-3. Si anomalie → message **Telegram** (`TELEGRAM_APPROVALS_CHAT_ID`).
-
-**Lit :** `sync_state`, `webhook_events`. **Notifie :** Telegram.
+- **#7 Prospection** : recherche web externe + enrichissement IA + import de
+  listes fournies.
+- **#8 Service client** : demandes centralisées depuis Shopify, Gmail et
+  Instagram ; **aucune réponse automatique** — proposition validée par un humain
+  avant envoi.

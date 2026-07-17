@@ -14,18 +14,21 @@ Doctrine complète : artifacts « Décision ROI » et « Écosystème e-commerce
 
 ## 2. État du projet (au dernier commit)
 
-| Bloc                                        | État                  | Où                              |
-| ------------------------------------------- | --------------------- | ------------------------------- |
-| Socle données Supabase (67 tables)          | ✅ migrations testées | `supabase/migrations/`          |
-| Organisation (8 agents + 2 humains)         | ✅ seed               | `…160000_seed_organization.sql` |
-| Workflow #10 (journalisation/coûts/erreurs) | ✅ SQL testé + n8n    | `…170000` + `n8n/workflows/`    |
-| Workflow #9 (validation Telegram)           | ✅ SQL testé + n8n    | `…180000`                       |
-| Workflow #1 (rapport Shopify)               | ✅ SQL testé + n8n    | `…190000`                       |
-| Workflow #3 (anomalies)                     | ✅ SQL testé + n8n    | `…200000`                       |
-| Workflow #2 (ventes & marges)               | ✅ SQL testé + n8n    | `…210000`                       |
-| Moteur de contenu (BUILD)                   | ✅ SQL testé + n8n    | `…220000/220100`                |
-| **Chantier BUY (SaaS)**                     | 📋 à mettre en prod   | `docs/playbooks/`               |
-| **Tests réels n8n Cloud**                   | ⏳ dépend des accès   | `docs/setup-n8n-telegram.md`    |
+| Bloc                                        | État                  | Où                               |
+| ------------------------------------------- | --------------------- | -------------------------------- |
+| Socle données Supabase (67 tables)          | ✅ migrations testées | `supabase/migrations/`           |
+| Organisation (8 agents + 2 humains)         | ✅ seed               | `…160000_seed_organization.sql`  |
+| Workflow #10 (journalisation/coûts/erreurs) | ✅ SQL testé + n8n    | `…170000` + `n8n/workflows/`     |
+| Workflow #9 (validation Telegram)           | ✅ SQL testé + n8n    | `…180000`                        |
+| Workflow #1 (rapport Shopify)               | ✅ SQL testé + n8n    | `…190000`                        |
+| Workflow #3 (anomalies)                     | ✅ SQL testé + n8n    | `…200000`                        |
+| Workflow #2 (ventes & marges)               | ✅ SQL testé + n8n    | `…210000`                        |
+| Moteur de contenu (BUILD)                   | ✅ SQL testé + n8n    | `…220000/220100`                 |
+| Helpers d'exécution (publication/outbox)    | ✅ SQL testé + n8n    | `…230000`                        |
+| Scripts + CI migrations (pgvector réel)     | ✅ testé              | `scripts/`, `.github/`           |
+| Déploiement + audit production              | ✅ documenté          | `docs/deployment.md`, `audit.md` |
+| **Chantier BUY (SaaS)**                     | 📋 à mettre en prod   | `docs/playbooks/`                |
+| **Tests réels n8n Cloud**                   | ⏳ dépend des accès   | `docs/setup-n8n-telegram.md`     |
 
 **Rien n'est encore en production** : les migrations et workflows sont écrits et
 testés en base, mais Supabase/n8n Cloud/Shopify/Telegram/OpenAI doivent être
@@ -54,10 +57,10 @@ docs/
     prompts.md            bibliothèque de prompts
   workflows/              1 fiche par workflow (#1, #2, #3)
 supabase/
-  migrations/             31 migrations SQL (ordre = timestamp)
+  migrations/             32 migrations SQL (ordre = timestamp)
   README.md               ordre & contenu des migrations
 n8n/
-  workflows/              10 workflows JSON importables + README
+  workflows/              13 workflows JSON importables + README
 infra/.env.example        toutes les variables (sans secrets)
 ```
 

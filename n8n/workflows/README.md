@@ -1,8 +1,30 @@
-# Workflows n8n — MVP (10 workflows)
+# Workflows n8n (13)
 
-Périmètre resserré : **10 workflows**. **Shopify en lecture seule** (aucune
-écriture). Toute action externe ou commerciale (#7 prospection, #8 service
-client) passe par une **validation humaine Telegram** (#9) avant envoi.
+**13 workflows** versionnés et JSON-valides. **Shopify en lecture seule**, à
+l'exception de la publication de contenu (`action-shopify-content-publish`),
+**toujours derrière l'approbation humaine**. Toute action externe/commerciale
+passe par la **validation Telegram** (#9).
+
+## Inventaire
+
+| Workflow | Rôle |
+| --- | --- |
+| `monitor-cost-guardrail-cron` | #10 garde-fou coût IA |
+| `lib-error-handler` | #10 reprise d'erreurs (log + file) |
+| `monitor-deadletter-cron` | alerte jobs en échec définitif |
+| `lib-approval-gate` | #9 garde-fou `fn_can_execute` |
+| `approval-send-telegram` | #9 envoi demande (boutons) |
+| `approval-human-telegram` | #9 réception décision |
+| `notify-outbox-dispatch-cron` | livraison fiable des notifications |
+| `report-shopify-daily-cron` | #1 rapport quotidien |
+| `monitor-anomalies-cron` | #3 détection d'anomalies |
+| `report-sales-margin-cron` | #2 ventes & marges (COGS) |
+| `rag-ingest-document-task` | BUILD ingestion RAG |
+| `content-draft-task` | BUILD génération de contenu (brouillon) |
+| `action-shopify-content-publish` | BUILD publication gated (write_content) |
+
+Le cœur logique vit dans des **fonctions Postgres** (migrations), déjà testées ;
+les nœuds n8n restent fins. Import/config : `docs/deployment.md`.
 
 Les workflows sont construits dans **n8n Cloud** (avec les credentials), puis
 exportés ici (`*.json`) pour être versionnés. Le cœur logique vit dans des

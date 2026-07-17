@@ -1,0 +1,49 @@
+{
+  "name": "monitor-deadletter-cron",
+  "meta": {
+    "description": "Surveillance des jobs en échec définitif. Toutes les heures : compte les dead-letters non résolus (v_deadletter_open). Alerte Telegram si > 0 pour qu'un humain intervienne. Ferme la boucle de reprise d'erreurs de #10."
+  },
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "cron", "name": "Toutes les heures",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select count(*)::int as n, string_agg(distinct kind, ', ') as kinds from v_deadletter_open;",
+        "options": {}
+      },
+      "id": "check", "name": "Dead-letters ouverts",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [220, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "version": 2 }, "combinator": "and",
+          "conditions": [ { "leftValue": "={{ $json.n }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } } ] }
+      },
+      "id": "if", "name": "Des échecs ?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
+        "text": "=🔴 {{ $json.n }} job(s) en échec définitif (dead-letter) : {{ $json.kinds }}. Intervention requise (voir v_deadletter_open).",
+        "additionalFields": {}
+      },
+      "id": "alert", "name": "Alerte Telegram",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [660, -80],
+      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+    }
+  ],
+  "connections": {
+    "Toutes les heures": { "main": [[{ "node": "Dead-letters ouverts", "type": "main", "index": 0 }]] },
+    "Dead-letters ouverts": { "main": [[{ "node": "Des échecs ?", "type": "main", "index": 0 }]] },
+    "Des échecs ?": { "main": [[{ "node": "Alerte Telegram", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "monitor" }, { "name": "mvp" }]
+}

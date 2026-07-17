@@ -1,0 +1,75 @@
+{
+  "name": "notify-outbox-dispatch-cron",
+  "meta": {
+    "description": "Livraison fiable des notifications (outbox). Toutes les 5 min : fn_next_notifications -> route par canal (Telegram / e-mail Resend) -> fn_mark_notification. Découple l'écriture de l'envoi : si un canal tombe, la notification reste en 'pending' et repart au tick suivant."
+  },
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "minutes", "minutesInterval": 5 }] } },
+      "id": "cron", "name": "Toutes les 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select id, channel, coalesce(title,'') as title, coalesce(body,'') as body, payload from fn_next_notifications(20);",
+        "options": {}
+      },
+      "id": "fetch", "name": "Notifications en attente",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [220, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "rules": { "values": [
+          { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [ { "leftValue": "={{ $json.channel }}", "rightValue": "telegram", "operator": { "type": "string", "operation": "equals" } } ] }, "outputKey": "telegram" },
+          { "conditions": { "options": { "version": 2 }, "combinator": "and", "conditions": [ { "leftValue": "={{ $json.channel }}", "rightValue": "email", "operator": { "type": "string", "operation": "equals" } } ] }, "outputKey": "email" }
+        ] }
+      },
+      "id": "switch", "name": "Router par canal",
+      "type": "n8n-nodes-base.switch", "typeVersion": 3, "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
+        "text": "={{ ($json.title ? '*' + $json.title + '*\\n' : '') + $json.body }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "tg", "name": "Envoyer Telegram",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [660, -90],
+      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "method": "POST", "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: $env.EMAIL_FROM, to: [ ($json.payload && $json.payload.email) || $env.EMAIL_FROM ], subject: $json.title || 'African College', html: '<p>' + ($json.body||'') + '</p>' }) }}",
+        "options": {}
+      },
+      "id": "email", "name": "Envoyer e-mail (Resend)",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, 90],
+      "credentials": { "httpHeaderAuth": { "id": "RESEND", "name": "Resend (Bearer)" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select fn_mark_notification($1::uuid, true);",
+        "options": { "queryReplacement": "={{ $json.id || $('Notifications en attente').item.json.id }}" }
+      },
+      "id": "mark", "name": "Marquer envoyée",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [900, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    }
+  ],
+  "connections": {
+    "Toutes les 5 min": { "main": [[{ "node": "Notifications en attente", "type": "main", "index": 0 }]] },
+    "Notifications en attente": { "main": [[{ "node": "Router par canal", "type": "main", "index": 0 }]] },
+    "Router par canal": { "main": [[{ "node": "Envoyer Telegram", "type": "main", "index": 0 }], [{ "node": "Envoyer e-mail (Resend)", "type": "main", "index": 0 }]] },
+    "Envoyer Telegram": { "main": [[{ "node": "Marquer envoyée", "type": "main", "index": 0 }]] },
+    "Envoyer e-mail (Resend)": { "main": [[{ "node": "Marquer envoyée", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
+  "active": false,
+  "tags": [{ "name": "notify" }, { "name": "mvp" }]
+}

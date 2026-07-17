@@ -1,0 +1,63 @@
+{
+  "name": "action-shopify-content-publish",
+  "meta": {
+    "description": "Publication de contenu sur Shopify — SEULE écriture Shopify du système, TOUJOURS derrière l'approbation. Entrée : proposal_id. fn_get_approved_content ne renvoie le contenu que si la proposition est approuvée (CEO->CTO->humain). Publie une page, puis journalise le résultat. Nécessite le scope write_content."
+  },
+  "nodes": [
+    {
+      "parameters": { "workflowInputs": { "values": [{ "name": "proposal_id", "type": "string" }] } },
+      "id": "trigger", "name": "Appel (Execute Workflow)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger", "typeVersion": 1.1, "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select request_id, title, body, content_type from fn_get_approved_content($1::uuid);",
+        "options": { "queryReplacement": "={{ $json.proposal_id }}" }
+      },
+      "id": "gate", "name": "Garde-fou : contenu approuvé ?",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [220, 0],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    },
+    {
+      "parameters": {
+        "conditions": { "options": { "caseSensitive": true, "version": 2 }, "combinator": "and",
+          "conditions": [ { "leftValue": "={{ $json.request_id }}", "rightValue": "", "operator": { "type": "string", "operation": "exists", "singleValue": true } } ] }
+      },
+      "id": "if", "name": "Approuvé ?",
+      "type": "n8n-nodes-base.if", "typeVersion": 2, "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/pages.json",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ page: { title: $json.title, body_html: $json.body, published: false } }) }}",
+        "options": {}
+      },
+      "id": "publish", "name": "Publier la page Shopify (brouillon)",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [660, -80],
+      "credentials": { "httpHeaderAuth": { "id": "SHOPIFY_ADMIN", "name": "Shopify Admin (X-Shopify-Access-Token)" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select fn_record_execution_result($1::uuid, 'applied');",
+        "options": { "queryReplacement": "={{ $('Garde-fou : contenu approuvé ?').item.json.request_id }}" }
+      },
+      "id": "result", "name": "Journaliser le résultat",
+      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [880, -80],
+      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+    }
+  ],
+  "connections": {
+    "Appel (Execute Workflow)": { "main": [[{ "node": "Garde-fou : contenu approuvé ?", "type": "main", "index": 0 }]] },
+    "Garde-fou : contenu approuvé ?": { "main": [[{ "node": "Approuvé ?", "type": "main", "index": 0 }]] },
+    "Approuvé ?": { "main": [[{ "node": "Publier la page Shopify (brouillon)", "type": "main", "index": 0 }], []] },
+    "Publier la page Shopify (brouillon)": { "main": [[{ "node": "Journaliser le résultat", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
+  "active": false,
+  "tags": [{ "name": "action" }, { "name": "content" }, { "name": "gated" }]
+}

@@ -1,0 +1,14 @@
+# Supabase CLI — configuration projet African College.
+# `supabase link --project-ref <ref>` puis `supabase db push`.
+project_id = "african-college"
+
+[db]
+major_version = 15
+
+[db.migrations]
+schema_paths = []
+
+# Extensions requises côté base (activées par les migrations) :
+#   - vector (pgvector)  : mémoire agents + RAG
+#   - pgcrypto           : hachage de la chaîne d'audit
+# Storage buckets créés par migration : product-media, agent-artifacts, exports, documents.

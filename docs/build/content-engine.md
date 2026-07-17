@@ -27,13 +27,13 @@ Brief (sujet) --> content-draft-task
 
 ## 3. Composants (déjà écrits & testés)
 
-| Composant                | Fichier                                                                                       | État            |
-| ------------------------ | --------------------------------------------------------------------------------------------- | --------------- |
-| Ingestion RAG            | `n8n/workflows/rag-ingest-document-task.json`                                                 | à tester en n8n |
-| Recherche RAG            | `fn_rag_search` (`…220100`, Supabase/pgvector)                                                | Supabase only   |
-| Génération + proposition | `n8n/workflows/content-draft-task.json` + `fn_create_content_proposal` (`…220000`, **testé**) | ✅ SQL testé    |
-| Validation               | réutilise #9 (`fn_open_approval`, Telegram)                                                   | ✅ testé        |
-| Publication              | manuelle OU `action-shopify-content-publish` (à créer, derrière approbation)                  | à faire         |
+| Composant                | Fichier                                                                                                 | État            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- | --------------- |
+| Ingestion RAG            | `n8n/workflows/rag-ingest-document-task.json`                                                           | à tester en n8n |
+| Recherche RAG            | `fn_rag_search` (`…220100`, Supabase/pgvector)                                                          | Supabase only   |
+| Génération + proposition | `n8n/workflows/content-draft-task.json` + `fn_create_content_proposal` (`…220000`, **testé**)           | ✅ SQL testé    |
+| Validation               | réutilise #9 (`fn_open_approval`, Telegram)                                                             | ✅ testé        |
+| Publication              | `action-shopify-content-publish.json` (page Shopify brouillon, **gated** par `fn_get_approved_content`) | ✅ SQL testé    |
 
 ## 4. Garde-fous (non négociables)
 

@@ -25,6 +25,8 @@ minimale**. L'humain garde le contrôle via Telegram (validation des actions à 
 | **Chantier BUILD — moteur de contenu** | [`docs/build/content-engine.md`](docs/build/content-engine.md)       |
 | Bibliothèque de prompts                | [`docs/build/prompts.md`](docs/build/prompts.md)                     |
 | SOP + checklists                       | [`docs/sop.md`](docs/sop.md)                                         |
+| **Déploiement production**             | [`docs/deployment.md`](docs/deployment.md)                           |
+| **Audit préparation prod**             | [`docs/audit.md`](docs/audit.md)                                     |
 | Maintenance                            | [`docs/maintenance.md`](docs/maintenance.md)                         |
 | Plan 90 jours                          | [`docs/roadmap-90days.md`](docs/roadmap-90days.md)                   |
 | Décisions d'architecture (ADR)         | [`docs/decisions/`](docs/decisions/)                                 |
@@ -35,8 +37,9 @@ minimale**. L'humain garde le contrôle via Telegram (validation des actions à 
 
 ```
 docs/            handoff, architecture, playbooks (BUY), build (BUILD), SOP, maintenance, roadmap, ADR
-supabase/        migrations SQL (67 tables + fonctions), testées sur PostgreSQL 16
-n8n/workflows/   10 workflows JSON importables + fiches
+supabase/        32 migrations (67 tables + vues + fonctions), testées (PostgreSQL 16 + pgvector)
+n8n/workflows/   13 workflows JSON importables + fiches
+scripts/         test-db, apply-migrations, export-n8n
 infra/           .env.example (toutes les variables, sans secrets)
 .github/         CI (format, validation migrations/JSON, scan de secrets)
 ```

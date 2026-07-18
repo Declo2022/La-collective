@@ -55,7 +55,7 @@ Créer dans n8n Cloud (Settings → Credentials) :
    2. `monitor-connections-healthcheck` (auto-vérification des 6 services, toutes les 6 h)
    3. `monitor-cost-guardrail-cron`, `notify-outbox-dispatch-cron`, `monitor-deadletter-cron`
    4. `approval-send-telegram`, `approval-human-telegram` (+ `lib-approval-gate`, `lib-error-handler` importés)
-   5. `report-shopify-daily-cron`, `monitor-anomalies-cron`, `report-sales-margin-cron`
+   5. `report-shopify-daily-cron`, `monitor-anomalies-cron`, `report-sales-margin-cron`, `report-dashboard-daily-cron`
    6. (BUILD) `rag-ingest-document-task`, `content-draft-task`, `action-shopify-content-publish`
 
 ## 5. Tests de mise en service (obligatoires)
@@ -66,6 +66,13 @@ Créer dans n8n Cloud (Settings → Credentials) :
 - [ ] `#3` anomalies : insérer une anomalie de test → alerte.
 - [ ] `#2` marges : charger COGS + run → message + `gross_margin`.
 - [ ] Contenu : ingérer un doc → générer un brouillon → valider → publier (page brouillon Shopify).
+- [ ] Connexions : run `monitor-connections-healthcheck` → `v_connection_health` tout au vert.
+- [ ] Dashboard : run `report-dashboard-daily-cron` → message Telegram consolidé.
+
+## 5bis. Activation des agents (gardée)
+
+Uniquement quand `select fn_activation_ready();` = `true`. Activer par vagues
+(`fn_activate_wave(1..4)`). Détail : `docs/agent-activation.md`.
 
 ## 6. Chantier BUY (SaaS)
 

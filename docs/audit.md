@@ -8,8 +8,10 @@ Dernier audit : révision « mode exécution ». Méthode : audit → correction
 | ------------------------ | ---- | --------------------------------------------------------------------------- |
 | Architecture complète    | ✅   | `docs/architecture.md`, 7 couches, ADR 0001–0006                            |
 | Agents IA complets       | ✅   | 8 gouvernance + **12 opérationnels** seedés (`…160000`, `…120100`), prompts |
-| Workflows n8n complets   | ✅   | 16 workflows JSON valides + fiches                                          |
-| Supabase complet         | ✅   | 34 migrations, 68 tables + vues, testées avec pgvector                      |
+| Workflows n8n complets   | ✅   | 17 workflows JSON valides + fiches                                          |
+| Supabase complet         | ✅   | 36 migrations, 68 tables + vues, testées avec pgvector                      |
+| Tableaux de bord         | ✅   | `fn_dashboard_snapshot()` (8 métriques) + `report-dashboard-daily-cron`     |
+| Activation agents        | ✅   | gardée (`fn_activation_ready`/`fn_activate_wave`), testée refus+succès      |
 | Shopify                  | ✅   | connexion **2026 Dev Dashboard** (client_credentials) ; écriture **gated**  |
 | Printful                 | ✅   | connexion Bearer testée + Printful Manager + approbations POD               |
 | Santé des connexions     | ✅   | `monitor-connections-healthcheck` (6 services) + `v_connection_health`      |

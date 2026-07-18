@@ -1,0 +1,58 @@
+{
+  "name": "test-printful-connection",
+  "meta": {
+    "description": "Test de connexion Printful <-> n8n (LECTURE SEULE). Déclenchement manuel : GET /stores avec Authorization: Bearer PRINTFUL_API_KEY. Confirme que le token API Printful fonctionne. Aucune écriture, aucune commande."
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Lancer le test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.printful.com/stores",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.PRINTFUL_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "stores",
+      "name": "GET /stores (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "s1", "name": "boutiques_liees", "value": "={{ ($json.result || []).length }}", "type": "number" },
+            { "id": "s2", "name": "premiere_boutique", "value": "={{ ($json.result && $json.result[0] ? $json.result[0].name : '—') }}", "type": "string" },
+            { "id": "s3", "name": "connexion", "value": "OK ✅", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ok",
+      "name": "Connexion vérifiée",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Lancer le test": { "main": [[{ "node": "GET /stores (read-only)", "type": "main", "index": 0 }]] },
+    "GET /stores (read-only)": { "main": [[{ "node": "Connexion vérifiée", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": [{ "name": "printful" }, { "name": "test" }]
+}

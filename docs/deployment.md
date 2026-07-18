@@ -11,6 +11,7 @@ Procédure complète, dans l'ordre. Objectif : plateforme en production, sûre.
 | OpenAI   | clé API + projet dédié + plafond           | —                                                                                                                                          |
 | Telegram | bot (@BotFather) + groupe privé            | —                                                                                                                                          |
 | n8n      | workspace n8n Cloud                        | Starter                                                                                                                                    |
+| Printful | token API privé (Bearer)                   | Free (POD)                                                                                                                                 |
 | Resend   | clé API + domaine e-mail vérifié           | Free au départ                                                                                                                             |
 
 ## 1. Base de données (Supabase)
@@ -50,10 +51,12 @@ Créer dans n8n Cloud (Settings → Credentials) :
 1. Importer tous les `n8n/workflows/*.json`.
 2. Associer les credentials aux nœuds.
 3. Activer dans cet ordre (tester chacun avant d'activer le suivant) :
-   1. `monitor-cost-guardrail-cron`, `notify-outbox-dispatch-cron`, `monitor-deadletter-cron`
-   2. `approval-send-telegram`, `approval-human-telegram` (+ `lib-approval-gate`, `lib-error-handler` importés)
-   3. `report-shopify-daily-cron`, `monitor-anomalies-cron`, `report-sales-margin-cron`
-   4. (BUILD) `rag-ingest-document-task`, `content-draft-task`, `action-shopify-content-publish`
+   1. `test-shopify-connection`, `test-printful-connection` (tests manuels de connexion)
+   2. `monitor-connections-healthcheck` (auto-vérification des 6 services, toutes les 6 h)
+   3. `monitor-cost-guardrail-cron`, `notify-outbox-dispatch-cron`, `monitor-deadletter-cron`
+   4. `approval-send-telegram`, `approval-human-telegram` (+ `lib-approval-gate`, `lib-error-handler` importés)
+   5. `report-shopify-daily-cron`, `monitor-anomalies-cron`, `report-sales-margin-cron`
+   6. (BUILD) `rag-ingest-document-task`, `content-draft-task`, `action-shopify-content-publish`
 
 ## 5. Tests de mise en service (obligatoires)
 

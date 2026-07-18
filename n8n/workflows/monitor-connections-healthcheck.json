@@ -1,0 +1,175 @@
+{
+  "name": "monitor-connections-healthcheck",
+  "meta": {
+    "description": "Auto-vérification des connexions. Toutes les 6 h : teste Shopify (token+shop), OpenAI, Telegram, Printful (n8n + Supabase prouvés par l'exécution/écriture), enregistre chaque état via fn_record_connection_check (+ event_log), et alerte Telegram si au moins un service est en erreur. Lecture seule, aucune écriture Shopify."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "cron",
+      "name": "Toutes les 6 h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const H = this.helpers;\nconst dom = $env.SHOPIFY_STORE_DOMAIN;\nconst ver = $env.SHOPIFY_API_VERSION || '2025-07';\nasync function check(service, fn) {\n  const t0 = Date.now();\n  try { const d = await fn(); return { service, status: 'ok', detail: (d == null ? '' : String(d)).slice(0, 300), latency: Date.now() - t0 }; }\n  catch (e) { const m = e && (e.message || e.description) ? (e.message || e.description) : String(e); return { service, status: 'error', detail: String(m).slice(0, 300), latency: Date.now() - t0 }; }\n}\nconst results = [];\nresults.push(await check('shopify', async () => { const tok = await H.httpRequest({ method: 'POST', url: `https://${dom}/admin/oauth/access_token`, body: { grant_type: 'client_credentials', client_id: $env.SHOPIFY_CLIENT_ID, client_secret: $env.SHOPIFY_CLIENT_SECRET }, json: true }); const shop = await H.httpRequest({ url: `https://${dom}/admin/api/${ver}/shop.json`, headers: { 'X-Shopify-Access-Token': tok.access_token }, json: true }); return shop.shop.name; }));\nresults.push(await check('openai', async () => { await H.httpRequest({ url: 'https://api.openai.com/v1/models', headers: { Authorization: `Bearer ${$env.OPENAI_API_KEY}` }, json: true }); return 'models accessibles'; }));\nresults.push(await check('telegram', async () => { const r = await H.httpRequest({ url: `https://api.telegram.org/bot${$env.TELEGRAM_BOT_TOKEN}/getMe`, json: true }); if (!r.ok) throw new Error('getMe ok=false'); return '@' + r.result.username; }));\nresults.push(await check('printful', async () => { const r = await H.httpRequest({ url: 'https://api.printful.com/stores', headers: { Authorization: `Bearer ${$env.PRINTFUL_API_KEY}` }, json: true }); return 'stores: ' + ((r.result && r.result.length) || 0); }));\nresults.push({ service: 'n8n', status: 'ok', detail: 'runtime actif', latency: 0 });\nresults.push({ service: 'supabase', status: 'ok', detail: 'ecriture connection_health', latency: 0 });\nconst DELIM = '$cd$';\nconst esc = (s) => String(s == null ? '' : s).split(DELIM).join('');\nconst stmts = results.map((r) => `select fn_record_connection_check('${r.service}','${r.status}',${DELIM}${esc(r.detail)}${DELIM},${r.latency | 0});`);\nconst has_error = results.some((r) => r.status === 'error');\nconst summary = results.map((r) => `${r.status === 'ok' ? '\\u2705' : '\\u274c'} ${r.service}${r.detail ? ' \\u2014 ' + r.detail : ''}`).join('\\n');\nreturn [{ json: { sql: stmts.join('\\n'), has_error, summary } }];"
+      },
+      "id": "checks",
+      "name": "Vérifier les connexions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "record",
+      "name": "Enregistrer l'état (Supabase)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $('Vérifier les connexions').item.json.has_error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      },
+      "id": "if",
+      "name": "Une erreur ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
+        "text": "=⚠️ *Santé des connexions — African College*\n\n{{ $('Vérifier les connexions').item.json.summary }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "alert",
+      "name": "Alerte Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        -100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Toutes les 6 h": {
+      "main": [
+        [
+          {
+            "node": "Vérifier les connexions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier les connexions": {
+      "main": [
+        [
+          {
+            "node": "Enregistrer l'état (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer l'état (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Une erreur ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Une erreur ?": {
+      "main": [
+        [
+          {
+            "node": "Alerte Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lib-error-handler"
+  },
+  "active": false,
+  "tags": [
+    {
+      "name": "monitor"
+    },
+    {
+      "name": "healthcheck"
+    }
+  ]
+}

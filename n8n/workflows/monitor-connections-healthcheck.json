@@ -1,9 +1,20 @@
 {
   "name": "monitor-connections-healthcheck",
   "meta": {
-    "description": "Auto-vérification des connexions. Toutes les 6 h : teste Shopify (token+shop), OpenAI, Telegram, Printful (n8n + Supabase prouvés par l'exécution/écriture), enregistre chaque état via fn_record_connection_check (+ event_log), et alerte Telegram si au moins un service est en erreur. Lecture seule, aucune écriture Shopify."
+    "description": "Auto-verification des connexions (manuel + toutes les 6 h). Teste reellement : Shopify (token OAuth client_credentials + produits + commandes + webhooks + scopes), OpenAI (/models), Telegram (getMe), Printful (/stores), Supabase (REST + table connection_health). Verifie les variables d'env requises. Produit un rapport unique 🟢/🟡/🔴 sur Telegram et enregistre chaque etat dans connection_health. Lecture seule, aucune ecriture Shopify."
   },
   "nodes": [
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Lancer maintenant",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -120
+      ]
+    },
     {
       "parameters": {
         "rule": {
@@ -21,19 +32,19 @@
       "typeVersion": 1.2,
       "position": [
         0,
-        0
+        120
       ]
     },
     {
       "parameters": {
-        "jsCode": "const H = this.helpers;\nconst dom = $env.SHOPIFY_STORE_DOMAIN;\nconst ver = $env.SHOPIFY_API_VERSION || '2025-07';\nasync function check(service, fn) {\n  const t0 = Date.now();\n  try { const d = await fn(); return { service, status: 'ok', detail: (d == null ? '' : String(d)).slice(0, 300), latency: Date.now() - t0 }; }\n  catch (e) { const m = e && (e.message || e.description) ? (e.message || e.description) : String(e); return { service, status: 'error', detail: String(m).slice(0, 300), latency: Date.now() - t0 }; }\n}\nconst results = [];\nresults.push(await check('shopify', async () => { const tok = await H.httpRequest({ method: 'POST', url: `https://${dom}/admin/oauth/access_token`, body: { grant_type: 'client_credentials', client_id: $env.SHOPIFY_CLIENT_ID, client_secret: $env.SHOPIFY_CLIENT_SECRET }, json: true }); const shop = await H.httpRequest({ url: `https://${dom}/admin/api/${ver}/shop.json`, headers: { 'X-Shopify-Access-Token': tok.access_token }, json: true }); return shop.shop.name; }));\nresults.push(await check('openai', async () => { await H.httpRequest({ url: 'https://api.openai.com/v1/models', headers: { Authorization: `Bearer ${$env.OPENAI_API_KEY}` }, json: true }); return 'models accessibles'; }));\nresults.push(await check('telegram', async () => { const r = await H.httpRequest({ url: `https://api.telegram.org/bot${$env.TELEGRAM_BOT_TOKEN}/getMe`, json: true }); if (!r.ok) throw new Error('getMe ok=false'); return '@' + r.result.username; }));\nresults.push(await check('printful', async () => { const r = await H.httpRequest({ url: 'https://api.printful.com/stores', headers: { Authorization: `Bearer ${$env.PRINTFUL_API_KEY}` }, json: true }); return 'stores: ' + ((r.result && r.result.length) || 0); }));\nresults.push({ service: 'n8n', status: 'ok', detail: 'runtime actif', latency: 0 });\nresults.push({ service: 'supabase', status: 'ok', detail: 'ecriture connection_health', latency: 0 });\nconst DELIM = '$cd$';\nconst esc = (s) => String(s == null ? '' : s).split(DELIM).join('');\nconst stmts = results.map((r) => `select fn_record_connection_check('${r.service}','${r.status}',${DELIM}${esc(r.detail)}${DELIM},${r.latency | 0});`);\nconst has_error = results.some((r) => r.status === 'error');\nconst summary = results.map((r) => `${r.status === 'ok' ? '\\u2705' : '\\u274c'} ${r.service}${r.detail ? ' \\u2014 ' + r.detail : ''}`).join('\\n');\nreturn [{ json: { sql: stmts.join('\\n'), has_error, summary } }];"
+        "jsCode": "const H = this.helpers;\nconst req = {\n  SHOPIFY_STORE_DOMAIN: $env.SHOPIFY_STORE_DOMAIN,\n  SHOPIFY_CLIENT_ID: $env.SHOPIFY_CLIENT_ID,\n  SHOPIFY_CLIENT_SECRET: $env.SHOPIFY_CLIENT_SECRET,\n  SHOPIFY_API_VERSION: $env.SHOPIFY_API_VERSION,\n  TELEGRAM_BOT_TOKEN: $env.TELEGRAM_BOT_TOKEN,\n  TELEGRAM_APPROVALS_CHAT_ID: $env.TELEGRAM_APPROVALS_CHAT_ID,\n  OPENAI_API_KEY: $env.OPENAI_API_KEY,\n  PRINTFUL_API_KEY: $env.PRINTFUL_API_KEY,\n  SUPABASE_URL: $env.SUPABASE_URL,\n  SUPABASE_SERVICE_ROLE_KEY: $env.SUPABASE_SERVICE_ROLE_KEY,\n};\nconst missingEnv = Object.keys(req).filter((k) => !req[k]);\nconst dom = req.SHOPIFY_STORE_DOMAIN;\nconst ver = req.SHOPIFY_API_VERSION || '2025-07';\nlet webhookCount = null;\nasync function check(service, fn) {\n  const t0 = Date.now();\n  try { const d = await fn(); return { service, status: 'ok', detail: (d == null ? '' : String(d)).slice(0, 300), latency: Date.now() - t0 }; }\n  catch (e) { const m = e && (e.message || e.description) ? (e.message || e.description) : String(e); return { service, status: 'error', detail: String(m).slice(0, 300), latency: Date.now() - t0 }; }\n}\nconst results = [];\nresults.push(await check('shopify', async () => {\n  if (!dom || !req.SHOPIFY_CLIENT_ID || !req.SHOPIFY_CLIENT_SECRET) throw new Error('variables Shopify manquantes');\n  const tok = await H.httpRequest({ method: 'POST', url: `https://${dom}/admin/oauth/access_token`, body: { grant_type: 'client_credentials', client_id: req.SHOPIFY_CLIENT_ID, client_secret: req.SHOPIFY_CLIENT_SECRET }, json: true });\n  await H.httpRequest({ url: `https://${dom}/admin/api/${ver}/products.json?limit=1`, headers: { 'X-Shopify-Access-Token': tok.access_token }, json: true });\n  await H.httpRequest({ url: `https://${dom}/admin/api/${ver}/orders.json?status=any&limit=1`, headers: { 'X-Shopify-Access-Token': tok.access_token }, json: true });\n  try { const wh = await H.httpRequest({ url: `https://${dom}/admin/api/${ver}/webhooks.json`, headers: { 'X-Shopify-Access-Token': tok.access_token }, json: true }); webhookCount = (wh.webhooks || []).length; } catch (e) { webhookCount = null; }\n  return `scopes: ${tok.scope}`;\n}));\nresults.push(await check('openai', async () => {\n  if (!req.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY manquant');\n  const r = await H.httpRequest({ url: 'https://api.openai.com/v1/models', headers: { Authorization: `Bearer ${req.OPENAI_API_KEY}` }, json: true });\n  return `${(r.data && r.data.length) || 0} modeles`;\n}));\nresults.push(await check('telegram', async () => {\n  if (!req.TELEGRAM_BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN manquant');\n  const r = await H.httpRequest({ url: `https://api.telegram.org/bot${req.TELEGRAM_BOT_TOKEN}/getMe`, json: true });\n  if (!r.ok) throw new Error('getMe ok=false');\n  return `@${r.result.username}`;\n}));\nresults.push(await check('printful', async () => {\n  if (!req.PRINTFUL_API_KEY) throw new Error('PRINTFUL_API_KEY manquant');\n  const r = await H.httpRequest({ url: 'https://api.printful.com/stores', headers: { Authorization: `Bearer ${req.PRINTFUL_API_KEY}` }, json: true });\n  return `${(r.result && r.result.length) || 0} boutique(s)`;\n}));\nresults.push(await check('supabase', async () => {\n  if (!req.SUPABASE_URL || !req.SUPABASE_SERVICE_ROLE_KEY) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY manquant');\n  await H.httpRequest({ url: `${req.SUPABASE_URL}/rest/v1/connection_health?select=service&limit=1`, headers: { apikey: req.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${req.SUPABASE_SERVICE_ROLE_KEY}` }, json: true });\n  return 'REST + table connection_health OK';\n}));\nresults.push({ service: 'n8n', status: 'ok', detail: 'runtime actif (workflow execute)', latency: 0 });\nconst green = results.filter((r) => r.status === 'ok').map((r) => `\\uD83D\\uDFE2 ${r.service} \\u2014 ${r.detail}`);\nconst red = results.filter((r) => r.status === 'error').map((r) => `\\uD83D\\uDD34 ${r.service} \\u2014 ${r.detail}`);\nconst yellow = [];\nif (missingEnv.length) yellow.push(`\\uD83D\\uDFE1 variables manquantes : ${missingEnv.join(', ')}`);\nif (webhookCount === 0) yellow.push('\\uD83D\\uDFE1 webhooks Shopify : 0 enregistre (MVP en pull quotidien)');\nif (webhookCount > 0) green.push(`\\uD83D\\uDFE2 webhooks Shopify \\u2014 ${webhookCount} enregistre(s)`);\nlet summary = '\\uD83D\\uDCE1 *Sante des connexions \\u2014 African College*\\n\\n';\nif (green.length) summary += green.join('\\n') + '\\n';\nif (yellow.length) summary += yellow.join('\\n') + '\\n';\nif (red.length) summary += red.join('\\n') + '\\n';\nsummary += `\\nResume : ${green.length} \\uD83D\\uDFE2 \\u00b7 ${yellow.length} \\uD83D\\uDFE1 \\u00b7 ${red.length} \\uD83D\\uDD34`;\nconst DELIM = '$cd$';\nconst esc = (s) => String(s == null ? '' : s).split(DELIM).join('');\nconst stmts = results.map((r) => `select fn_record_connection_check('${r.service}','${r.status}',${DELIM}${esc(r.detail)}${DELIM},${r.latency | 0});`);\nconst has_error = red.length > 0;\nreturn [{ json: { sql: stmts.join('\\n'), has_error, summary, webhooks: webhookCount } }];"
       },
       "id": "checks",
       "name": "Vérifier les connexions",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        260,
         0
       ]
     },
@@ -48,9 +59,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        440,
+        500,
         0
       ],
+      "onError": "continueRegularOutput",
       "credentials": {
         "postgres": {
           "id": "SUPABASE_PG",
@@ -60,49 +72,19 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ $('Vérifier les connexions').item.json.has_error }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ]
-        }
-      },
-      "id": "if",
-      "name": "Une erreur ?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        660,
-        0
-      ]
-    },
-    {
-      "parameters": {
         "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
-        "text": "=⚠️ *Santé des connexions — African College*\n\n{{ $('Vérifier les connexions').item.json.summary }}",
+        "text": "={{ $('Vérifier les connexions').item.json.summary }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
       },
-      "id": "alert",
-      "name": "Alerte Telegram",
+      "id": "report",
+      "name": "Rapport Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        880,
-        -100
+        740,
+        0
       ],
       "credentials": {
         "telegramApi": {
@@ -113,6 +95,17 @@
     }
   ],
   "connections": {
+    "Lancer maintenant": {
+      "main": [
+        [
+          {
+            "node": "Vérifier les connexions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Toutes les 6 h": {
       "main": [
         [
@@ -139,23 +132,11 @@
       "main": [
         [
           {
-            "node": "Une erreur ?",
+            "node": "Rapport Telegram",
             "type": "main",
             "index": 0
           }
         ]
-      ]
-    },
-    "Une erreur ?": {
-      "main": [
-        [
-          {
-            "node": "Alerte Telegram",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
       ]
     }
   },

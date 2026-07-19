@@ -5,23 +5,60 @@
   },
   "nodes": [
     {
-      "parameters": { "updates": ["callback_query"], "additionalFields": {} },
-      "id": "tg-trigger", "name": "Clic bouton Telegram",
-      "type": "n8n-nodes-base.telegramTrigger", "typeVersion": 1.2, "position": [0, 0],
-      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+      "parameters": {
+        "updates": [
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "tg-trigger",
+      "name": "Clic bouton Telegram",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
         "jsCode": "const cq = $json.callback_query || {};\nconst data = String(cq.data || '');\nconst decision = data.split(':')[0] === 'approve' ? 'approved' : 'rejected';\nconst rid = (data.split(':')[1] || '').match(/^[0-9a-f-]{36}$/i) ? data.split(':')[1] : null;\nconst user = String((cq.from && (cq.from.username || cq.from.id)) || 'inconnu').replace(/[^\\w.@-]/g, '');\nconst chat = (cq.message && cq.message.chat && cq.message.chat.id) || '';\nif (!rid) { throw new Error('request_id invalide dans callback_data'); }\nconst comment = ('via Telegram: ' + user).split('$c$').join('');\nconst sql = `select fn_record_decision('${rid}'::uuid, 'human', (select id from people where role='founder_final_approver' limit 1), 'human', '${decision}', $c$${comment}$c$) as resultat;`;\nreturn [{ json: { sql, decision, chat_id: chat } }];"
       },
-      "id": "parse", "name": "Parser + préparer SQL",
-      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [220, 0]
+      "id": "parse",
+      "name": "Parser + préparer SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
     },
     {
-      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
-      "id": "record", "name": "Enregistrer la décision",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [440, 0],
-      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "record",
+      "name": "Enregistrer la décision",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
@@ -30,17 +67,74 @@
         "text": "=Décision enregistrée : {{ $('Parser + préparer SQL').item.json.decision }} ✅",
         "additionalFields": {}
       },
-      "id": "confirm", "name": "Confirmer dans le fil",
-      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [660, 0],
-      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+      "id": "confirm",
+      "name": "Confirmer dans le fil",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000
     }
   ],
   "connections": {
-    "Clic bouton Telegram": { "main": [[{ "node": "Parser + préparer SQL", "type": "main", "index": 0 }]] },
-    "Parser + préparer SQL": { "main": [[{ "node": "Enregistrer la décision", "type": "main", "index": 0 }]] },
-    "Enregistrer la décision": { "main": [[{ "node": "Confirmer dans le fil", "type": "main", "index": 0 }]] }
+    "Clic bouton Telegram": {
+      "main": [
+        [
+          {
+            "node": "Parser + préparer SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser + préparer SQL": {
+      "main": [
+        [
+          {
+            "node": "Enregistrer la décision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer la décision": {
+      "main": [
+        [
+          {
+            "node": "Confirmer dans le fil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lib-error-handler"
+  },
   "active": false,
-  "tags": [{ "name": "approval" }, { "name": "mvp" }, { "name": "wf-9" }]
+  "tags": [
+    {
+      "name": "approval"
+    },
+    {
+      "name": "mvp"
+    },
+    {
+      "name": "wf-9"
+    }
+  ]
 }

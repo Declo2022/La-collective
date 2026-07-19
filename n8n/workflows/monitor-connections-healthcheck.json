@@ -91,7 +91,10 @@
           "id": "TELEGRAM_BOT",
           "name": "Telegram Bot"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000
     }
   ],
   "connections": {

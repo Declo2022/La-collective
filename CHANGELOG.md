@@ -4,6 +4,20 @@ Format : date · bloc · détail. Le plus récent en haut.
 
 ## 2026-07-19 — Phase V2 (périmètre 6 workflows)
 
+### Telegram — durcissement + bot AC Core
+
+- **Retry auto** ajouté sur les 10 workflows à nœud Telegram (`retryOnFail`,
+  `maxTries=4`, `waitBetweenTries=2000`) — tolérance timeout / rate-limit 429.
+- **Credential unique** confirmé partout (`Telegram Bot`), aucune divergence.
+- **Distinction chat_id** : broadcasts (rapports/alertes) = `TELEGRAM_APPROVALS_CHAT_ID`
+  (diffusion groupe, volontaire) ; réponses utilisateur = `chat.id` dynamique.
+- **`ac-core-telegram-bot.json`** (brouillon) : bot 24/7 — Telegram Trigger →
+  contexte → mémoire+cache+dashboard → (cache 24 h : réponse immédiate) →
+  routeur d'intention (modèle léger) → persona (Singa/Opérateur/Analyste/
+  garde-fou écriture) → mémorise+cache → réponse. `chat.id` **dynamique**,
+  retry sur LLM/Telegram, aucune écriture Shopify. SQL du bot testé sur la base
+  (mémoire, cache hit/miss, profil, dashboard).
+
 ### Ajouté
 
 - **Bloc schéma V2** (`supabase/migrations/20260719120000_ac_v2_memory_cache_errors.sql`) :

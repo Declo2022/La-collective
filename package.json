@@ -1,0 +1,28 @@
+{
+  "name": "la-collective-video",
+  "version": "1.0.0",
+  "description": "Montage vidéo La Collective réalisé avec Remotion",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render Montage out/montage.mp4",
+    "render:carre": "remotion render MontageCarre out/montage-carre.mp4",
+    "render:vertical": "remotion render MontageVertical out/montage-vertical.mp4",
+    "still": "remotion still Montage out/apercu.png",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.335",
+    "@remotion/transitions": "4.0.335",
+    "@remotion/zod-types": "4.0.335",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.335",
+    "zod": "3.22.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "@types/web": "0.0.166",
+    "typescript": "5.8.2"
+  }
+}

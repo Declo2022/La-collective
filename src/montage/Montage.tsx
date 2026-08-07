@@ -7,11 +7,13 @@ import {
   DUREE_TRANSITION,
   FPS,
   MUSIQUE,
+  STYLE,
   VOLUME_MUSIQUE,
   scenes,
 } from './config';
 import {SceneTitre} from './SceneTitre';
 import {SceneMedia} from './SceneMedia';
+import {PelliculeNoirEtBlanc, SceneTitreRohmer} from './Rohmer';
 
 /**
  * Le montage principal : enchaîne les scènes définies dans `config.ts`
@@ -34,7 +36,25 @@ export const Montage: React.FC = () => {
               durationInFrames={dureeEnFrames}
             >
               {scene.type === 'titre' ? (
-                <SceneTitre titre={scene.titre} sousTitre={scene.sousTitre} />
+                STYLE === 'rohmer' ? (
+                  <SceneTitreRohmer
+                    titre={scene.titre}
+                    sousTitre={scene.sousTitre}
+                  />
+                ) : (
+                  <SceneTitre titre={scene.titre} sousTitre={scene.sousTitre} />
+                )
+              ) : STYLE === 'rohmer' ? (
+                <PelliculeNoirEtBlanc>
+                  <SceneMedia
+                    type={scene.type}
+                    fichier={scene.fichier}
+                    legende={scene.legende}
+                    debut={scene.type === 'video' ? scene.debut : undefined}
+                    muet={scene.type === 'video' ? scene.muet : undefined}
+                    dureeEnFrames={dureeEnFrames}
+                  />
+                </PelliculeNoirEtBlanc>
               ) : (
                 <SceneMedia
                   type={scene.type}
@@ -48,14 +68,17 @@ export const Montage: React.FC = () => {
             </TransitionSeries.Sequence>,
           ];
 
-          // Ajoute une transition après chaque scène sauf la dernière,
-          // en alternant fondu et glissement.
+          // Ajoute une transition après chaque scène sauf la dernière.
+          // Style Rohmer : uniquement des fondus courts (esprit coupe franche).
+          // Style moderne : alternance fondu / glissement.
           if (index < scenes.length - 1) {
             elements.push(
               <TransitionSeries.Transition
                 key={`transition-${index}`}
                 presentation={
-                  index % 2 === 0 ? fade() : slide({direction: 'from-right'})
+                  STYLE === 'rohmer' || index % 2 === 0
+                    ? fade()
+                    : slide({direction: 'from-right'})
                 }
                 timing={linearTiming({durationInFrames: dureeTransition})}
               />

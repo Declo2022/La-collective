@@ -21,6 +21,15 @@ export const Root: React.FC = () => {
         width={1920}
         height={1080}
       />
+      {/* Format 4:3, celui de « La Boulangère de Monceau » */}
+      <Composition
+        id="Montage43"
+        component={Montage}
+        durationInFrames={duree}
+        fps={FPS}
+        width={1440}
+        height={1080}
+      />
       <Composition
         id="MontageCarre"
         component={Montage}

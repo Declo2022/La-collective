@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "remotion studio",
     "render": "remotion render Montage out/montage.mp4",
+    "render:43": "remotion render Montage43 out/montage-4-3.mp4",
     "render:carre": "remotion render MontageCarre out/montage-carre.mp4",
     "render:vertical": "remotion render MontageVertical out/montage-vertical.mp4",
     "still": "remotion still Montage out/apercu.png",

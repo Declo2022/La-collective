@@ -36,8 +36,20 @@ export type Scene =
 
 export const FPS = 30;
 
-/** Durée des transitions entre scènes, en secondes */
-export const DUREE_TRANSITION = 0.7;
+/**
+ * Style visuel du montage :
+ * - 'rohmer'  : hommage à « La Boulangère de Monceau » d'Éric Rohmer —
+ *               noir et blanc granuleux, cartons de titre en serif sur
+ *               fond noir, coupes franches (fondus courts uniquement)
+ * - 'moderne' : couleurs, titres sans-serif animés, transitions variées
+ */
+export const STYLE: 'rohmer' | 'moderne' = 'rohmer';
+
+/**
+ * Durée des transitions entre scènes, en secondes.
+ * Le style Rohmer privilégie les coupes franches : fondus très courts.
+ */
+export const DUREE_TRANSITION = STYLE === 'rohmer' ? 0.4 : 0.7;
 
 /** Palette de couleurs du montage */
 export const COULEURS = {
@@ -64,13 +76,19 @@ export const scenes: Scene[] = [
   {
     type: 'titre',
     titre: "La petite vie rangée d'un libraire",
-    sousTitre: 'La Collective',
-    duree: 4,
+    sousTitre: 'Un conte moral',
+    duree: 4.5,
   },
+  // Ajoutez ici vos extraits vidéo, par exemple :
+  // {
+  //   type: 'video',
+  //   fichier: 'la-petite-vie-rangee.mp4',
+  //   debut: 130,      // démarrer à 2 min 10 s
+  //   duree: 35,       // garder 35 secondes
+  // },
   {
     type: 'titre',
-    titre: 'Chapitre 1',
-    sousTitre: 'Ajoutez vos photos dans le dossier public/',
+    titre: 'Chapitre premier',
     duree: 3,
   },
   // Exemple avec une image (décommentez après avoir ajouté le fichier) :
@@ -90,8 +108,7 @@ export const scenes: Scene[] = [
   // },
   {
     type: 'titre',
-    titre: 'À bientôt',
-    sousTitre: 'Montage réalisé avec Remotion',
+    titre: 'Fin',
     duree: 3.5,
   },
 ];

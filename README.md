@@ -54,16 +54,23 @@ par le nom de votre fichier audio placé dans `public/` :
 export const MUSIQUE: string | null = 'musique.mp3';
 ```
 
-### 4. Couleurs
+### 4. Style visuel
 
-La palette (fond, couleur d'accent, texte) se règle dans la constante
-`COULEURS` de `config.ts`.
+La constante `STYLE` de `config.ts` choisit l'esthétique du montage :
+
+- **`'rohmer'`** (actif) : hommage à « La Boulangère de Monceau »
+  d'Éric Rohmer — noir et blanc granuleux avec vignettage, cartons de
+  titre en serif sur fond noir, coupes franches (fondus très courts).
+- **`'moderne'`** : couleurs, titres sans-serif animés, transitions
+  variées (fondu / glissement). La palette se règle alors dans la
+  constante `COULEURS`.
 
 ## Formats disponibles
 
 | Commande | Composition | Format | Usage |
 |---|---|---|---|
 | `npm run render` | `Montage` | 1920×1080 (16:9) | YouTube, projection |
+| `npm run render:43` | `Montage43` | 1440×1080 (4:3) | Style cinéma classique |
 | `npm run render:carre` | `MontageCarre` | 1080×1080 (1:1) | Instagram |
 | `npm run render:vertical` | `MontageVertical` | 1080×1920 (9:16) | Reels, TikTok, Shorts |
 

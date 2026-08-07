@@ -63,9 +63,9 @@ export const VOLUME_MUSIQUE = 0.5;
 export const scenes: Scene[] = [
   {
     type: 'titre',
-    titre: 'La Collective',
-    sousTitre: 'Notre histoire en images',
-    duree: 3.5,
+    titre: "La petite vie rangée d'un libraire",
+    sousTitre: 'La Collective',
+    duree: 4,
   },
   {
     type: 'titre',

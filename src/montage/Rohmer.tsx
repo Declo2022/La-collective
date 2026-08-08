@@ -120,3 +120,48 @@ export const SceneTitreRohmer: React.FC<{
     </AbsoluteFill>
   );
 };
+
+/**
+ * Carton de narration : une phrase littéraire du narrateur, comme
+ * dans les Contes moraux (texte plus modeste que le titre, en italique,
+ * façon commentaire ironique et tendre sur le personnage).
+ */
+export const SceneNarrationRohmer: React.FC<{
+  texte: string;
+}> = ({texte}) => {
+  const frame = useCurrentFrame();
+  const {durationInFrames} = useVideoConfig();
+
+  const fondu = interpolate(
+    frame,
+    [0, 15, durationInFrames - 15, durationInFrames],
+    [0, 1, 1, 0],
+    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
+  );
+
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+        fontFamily: POLICE_SERIF,
+      }}
+    >
+      <div
+        style={{
+          opacity: fondu,
+          textAlign: 'center',
+          padding: '0 160px',
+          color: '#e4e0d3',
+          fontSize: 40,
+          fontStyle: 'italic',
+          lineHeight: 1.6,
+        }}
+      >
+        {texte}
+      </div>
+      <GrainPellicule />
+    </AbsoluteFill>
+  );
+};

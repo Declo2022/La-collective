@@ -65,6 +65,37 @@ La constante `STYLE` de `config.ts` choisit l'esthétique du montage :
   variées (fondu / glissement). La palette se règle alors dans la
   constante `COULEURS`.
 
+## Guide de tournage — « La petite vie rangée d'un libraire »
+
+Le montage actuel attend quatre courts extraits, un par chapitre. Filmés
+au téléphone en suivant ces quelques principes, ils s'intégreront
+naturellement au style Rohmer (le rendu passe automatiquement en noir et
+blanc granuleux) :
+
+- **Téléphone à l'horizontale**, poser l'appareil plutôt que le tenir
+  (contre un livre, une étagère...) : pas de mouvement de caméra.
+- **Lumière naturelle**, pas de flash ni de lumière artificielle forte.
+- **10 à 15 secondes par plan**, sans réaction face caméra — on filme la
+  scène comme si personne ne filmait.
+- Le son n'est pas utilisé pour l'instant (`muet: true` dans la config) :
+  aucune contrainte sur le bruit ambiant.
+
+| Chapitre | Fichier attendu | Ce qu'il faut filmer |
+|---|---|---|
+| I. L'ouverture | `ouverture.mp4` | Le rideau de fer qui se lève, la clef dans la serrure, la lumière qu'on allume dans la boutique vide |
+| II. Les habitués | `habitues.mp4` | Un client familier, un échange bref, un livre choisi sans hésiter |
+| III. L'heure creuse | `heure-creuse.mp4` | La boutique déserte, la poussière dans la lumière, un livre feuilleté pour soi |
+| IV. La fermeture | `fermeture.mp4` | Les piles rangées, les lumières éteintes, le rideau qui redescend |
+
+Une fois un extrait filmé et découpé (voir plus bas s'il est trop lourd),
+envoyez-le dans la conversation avec Claude : il sera placé dans le bon
+chapitre et le montage sera rendu à nouveau.
+
+**Si le fichier est trop volumineux pour être envoyé directement** (plus
+de 100 Mo environ), publiez-le comme *Release* sur ce dépôt GitHub
+(Code → Releases → « Create a new release » → joindre le fichier), qui
+accepte jusqu'à 2 Go par fichier.
+
 ## Formats disponibles
 
 | Commande | Composition | Format | Usage |

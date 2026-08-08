@@ -13,7 +13,11 @@ import {
 } from './config';
 import {SceneTitre} from './SceneTitre';
 import {SceneMedia} from './SceneMedia';
-import {PelliculeNoirEtBlanc, SceneTitreRohmer} from './Rohmer';
+import {
+  PelliculeNoirEtBlanc,
+  SceneNarrationRohmer,
+  SceneTitreRohmer,
+} from './Rohmer';
 
 /**
  * Le montage principal : enchaîne les scènes définies dans `config.ts`
@@ -44,6 +48,8 @@ export const Montage: React.FC = () => {
                 ) : (
                   <SceneTitre titre={scene.titre} sousTitre={scene.sousTitre} />
                 )
+              ) : scene.type === 'narration' ? (
+                <SceneNarrationRohmer texte={scene.texte} />
               ) : STYLE === 'rohmer' ? (
                 <PelliculeNoirEtBlanc>
                   <SceneMedia

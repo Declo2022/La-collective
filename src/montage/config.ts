@@ -15,6 +15,12 @@ export type Scene =
       duree: number;
     }
   | {
+      /** Carton de texte narratif (style Rohmer uniquement) */
+      type: 'narration';
+      texte: string;
+      duree: number;
+    }
+  | {
       type: 'image';
       /** Nom du fichier dans le dossier `public/` (ex. "photo1.jpg") */
       fichier: string;
@@ -87,6 +93,12 @@ export const scenes: Scene[] = [
     sousTitre: "L'ouverture",
     duree: 2.5,
   },
+  {
+    type: 'narration',
+    texte:
+      "Il descend le rideau de fer chaque matin à la même heure, comme si l'exactitude était, à elle seule, une vertu.",
+    duree: 4,
+  },
   // Placez ici votre extrait : rideau de fer, clef dans la serrure,
   // lumière allumée dans la boutique vide.
   // {
@@ -104,6 +116,12 @@ export const scenes: Scene[] = [
     sousTitre: 'Les habitués',
     duree: 2.5,
   },
+  {
+    type: 'narration',
+    texte:
+      'Ils reviennent toujours, moins pour ce qu’ils achètent que pour ce qu’ils y retrouvent : eux-mêmes, inchangés.',
+    duree: 4,
+  },
   // Un client familier, un échange bref, un livre choisi sans hésiter.
   // {
   //   type: 'video',
@@ -120,6 +138,12 @@ export const scenes: Scene[] = [
     sousTitre: "L'heure creuse",
     duree: 2.5,
   },
+  {
+    type: 'narration',
+    texte:
+      "Entre midi et deux, il cesse un instant d'être libraire, et redevient, simplement, un lecteur.",
+    duree: 4,
+  },
   // La boutique vide, la poussière, un livre feuilleté pour soi.
   // {
   //   type: 'video',
@@ -135,6 +159,12 @@ export const scenes: Scene[] = [
     titre: 'IV',
     sousTitre: 'La fermeture',
     duree: 2.5,
+  },
+  {
+    type: 'narration',
+    texte:
+      'Il range les piles, éteint les lumières, et referme sur sa journée comme on referme un livre déjà lu.',
+    duree: 4,
   },
   // Le rideau qui redescend, la rue qui s'assombrit.
   // {

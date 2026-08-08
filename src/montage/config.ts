@@ -79,33 +79,72 @@ export const scenes: Scene[] = [
     sousTitre: 'Un conte moral',
     duree: 4.5,
   },
-  // Ajoutez ici vos extraits vidéo, par exemple :
-  // {
-  //   type: 'video',
-  //   fichier: 'la-petite-vie-rangee.mp4',
-  //   debut: 130,      // démarrer à 2 min 10 s
-  //   duree: 35,       // garder 35 secondes
-  // },
+
+  // ── Chapitre I ─────────────────────────────────────────────
   {
     type: 'titre',
-    titre: 'Chapitre premier',
-    duree: 3,
+    titre: 'I',
+    sousTitre: "L'ouverture",
+    duree: 2.5,
   },
-  // Exemple avec une image (décommentez après avoir ajouté le fichier) :
-  // {
-  //   type: 'image',
-  //   fichier: 'photo1.jpg',
-  //   legende: 'Un moment mémorable',
-  //   duree: 4,
-  // },
-  // Exemple avec une vidéo :
+  // Placez ici votre extrait : rideau de fer, clef dans la serrure,
+  // lumière allumée dans la boutique vide.
   // {
   //   type: 'video',
-  //   fichier: 'clip1.mp4',
-  //   debut: 2,
+  //   fichier: 'ouverture.mp4',
+  //   debut: 0,
   //   muet: true,
-  //   duree: 5,
+  //   duree: 8,
   // },
+
+  // ── Chapitre II ────────────────────────────────────────────
+  {
+    type: 'titre',
+    titre: 'II',
+    sousTitre: 'Les habitués',
+    duree: 2.5,
+  },
+  // Un client familier, un échange bref, un livre choisi sans hésiter.
+  // {
+  //   type: 'video',
+  //   fichier: 'habitues.mp4',
+  //   debut: 0,
+  //   muet: true,
+  //   duree: 10,
+  // },
+
+  // ── Chapitre III ───────────────────────────────────────────
+  {
+    type: 'titre',
+    titre: 'III',
+    sousTitre: "L'heure creuse",
+    duree: 2.5,
+  },
+  // La boutique vide, la poussière, un livre feuilleté pour soi.
+  // {
+  //   type: 'video',
+  //   fichier: 'heure-creuse.mp4',
+  //   debut: 0,
+  //   muet: true,
+  //   duree: 10,
+  // },
+
+  // ── Chapitre IV ────────────────────────────────────────────
+  {
+    type: 'titre',
+    titre: 'IV',
+    sousTitre: 'La fermeture',
+    duree: 2.5,
+  },
+  // Le rideau qui redescend, la rue qui s'assombrit.
+  // {
+  //   type: 'video',
+  //   fichier: 'fermeture.mp4',
+  //   debut: 0,
+  //   muet: true,
+  //   duree: 8,
+  // },
+
   {
     type: 'titre',
     titre: 'Fin',

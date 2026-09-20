@@ -67,5 +67,5 @@ Aucun secret dans le dépôt (scan Gitleaks en CI). Voir
 
 ---
 
-_Note : `index.html` est une démo Snake héritée de l'historique du dépôt, sans
-rapport avec African College. Conservée pour l'instant, à retirer sur demande._
+_Phase 0 (vérité unique) en cours : voir `docs/audit-lecture-seule-2026-08-07.md`,
+`docs/phase0-credentials-checklist.md` et `n8n/workflows/live/README.md`._

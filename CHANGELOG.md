@@ -2,6 +2,25 @@
 
 Format : date · bloc · détail. Le plus récent en haut.
 
+## 2026-09-20 — V2.1 : robustesse du bot AC Core (validé par le fondateur)
+
+### `ac-core-telegram-bot.json` (toujours brouillon, non activé)
+
+- **Gestion d'erreurs** : sorties d'erreur sur les 3 nœuds critiques (Postgres
+  mémoire, routeur OpenAI, réponse OpenAI) → `fn_log_error` (severity
+  `critical`) + **réponse de secours** à l'utilisateur (chat.id dynamique).
+  La journalisation tolère une base indisponible (`continueRegularOutput`).
+- **L'utilisateur d'abord** : la réponse Telegram part **avant** l'écriture
+  mémoire/cache ; un échec d'écriture (après 3 retries) ne prive plus
+  l'utilisateur de sa réponse.
+- **Escalade de modèle** : intention `analyste` → `OPENAI_DEFAULT_MODEL`
+  (gpt-4.1, 480 tokens) ; les autres restent sur le modèle mini (320 tokens).
+- **Cache anti-péremption** : clé de cache **datée** (UTC) — jamais de réponse
+  de la veille ; cache **désactivé** (lecture et écriture) sur les questions
+  temporelles (aujourd'hui, hier, maintenant, cette semaine…).
+- Tests : JSON valide, syntaxe des 4 Code nodes (`node --check`), simulation
+  du nœud SQL (cache normal vs question temporelle), câblage vérifié.
+
 ## 2026-07-19 — Phase V2 (périmètre 6 workflows)
 
 ### Telegram — durcissement + bot AC Core

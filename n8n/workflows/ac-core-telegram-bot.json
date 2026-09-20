@@ -1,7 +1,7 @@
 {
   "name": "ac-core-telegram-bot",
   "meta": {
-    "description": "AC Core — bot Telegram 24/7. Telegram Trigger -> contexte -> mémoire+cache+dashboard (Supabase) -> si cache 24h: réponse immédiate ; sinon routeur d'intention (modèle léger) -> persona (Singa/Opérateur/Analyste/garde-fou écriture) -> mémorise+cache -> réponse. chat.id TOUJOURS dynamique (jamais fixe). Retry auto sur LLM/Telegram. Aucune écriture Shopify (garde-fou écriture = proposition pour validation). BROUILLON non activé."
+    "description": "AC Core — bot Telegram 24/7. Telegram Trigger -> contexte -> mémoire+cache+dashboard (Supabase) -> si cache 24h: réponse immédiate ; sinon routeur d'intention (modèle léger) -> persona (Singa/Opérateur/Analyste/garde-fou écriture) -> mémorise+cache -> réponse. chat.id TOUJOURS dynamique (jamais fixe). Retry auto sur LLM/Telegram. Aucune écriture Shopify (garde-fou écriture = proposition pour validation). BROUILLON non activé. Robustesse V2.1 : sorties d'erreur (Postgres/OpenAI) -> fn_log_error (critical) + réponse de secours à l'utilisateur ; envoi de la réponse AVANT l'écriture mémoire ; cache daté (UTC) et désactivé sur questions temporelles ; escalade analyste -> OPENAI_DEFAULT_MODEL (gpt-4.1)."
   },
   "nodes": [
     {
@@ -69,7 +69,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const t = $json;\nconst uid = String(t.user_id || '');\nconst chat = String(t.chat_id || '');\nconst name = String(t.user_name || '');\nconst text = String(t.text || '');\nconst key = text.toLowerCase().trim().slice(0, 200);\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nconst sql = `select fn_conv_remember($x$${esc(uid)}$x$,$x$${esc(chat)}$x$,$x$${esc(name)}$x$,'in',null,null,$x$${esc(text)}$x$,null);\\n`\n  + `select fn_cache_get($x$${esc(key)}$x$) as cached,`\n  + ` (select coalesce(jsonb_agg(jsonb_build_object('d',direction,'a',agent,'c',content) order by created_at desc),'[]'::jsonb) from fn_conv_recent($x$${esc(uid)}$x$,6)) as context,`\n  + ` (select to_jsonb(p) from fn_conv_user_profile($x$${esc(uid)}$x$) p) as profile,`\n  + ` fn_dashboard_snapshot() as dashboard;`;\nreturn [{ json: { sql, cache_key: key } }];"
+        "jsCode": "const t = $json;\nconst uid = String(t.user_id || '');\nconst chat = String(t.chat_id || '');\nconst name = String(t.user_name || '');\nconst text = String(t.text || '');\n// Clé datée (UTC) : une réponse mise en cache ne survit jamais au changement de jour.\nconst today = new Date().toISOString().slice(0, 10);\nconst key = (today + '|' + text.toLowerCase().trim()).slice(0, 200);\n// Question temporelle -> on ne lit ni n'écrit le cache.\nconst noCache = /(aujourd|demain|hier|maintenant|en ce moment|ce soir|cette semaine|ce mois|actuel|dernier|derni\\u00e8re)/i.test(text);\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nconst cachedSel = noCache ? 'null::text as cached' : `fn_cache_get($x$${esc(key)}$x$) as cached`;\nconst sql = `select fn_conv_remember($x$${esc(uid)}$x$,$x$${esc(chat)}$x$,$x$${esc(name)}$x$,'in',null,null,$x$${esc(text)}$x$,null);\\n`\n  + `select ${cachedSel},`\n  + ` (select coalesce(jsonb_agg(jsonb_build_object('d',direction,'a',agent,'c',content) order by created_at desc),'[]'::jsonb) from fn_conv_recent($x$${esc(uid)}$x$,6)) as context,`\n  + ` (select to_jsonb(p) from fn_conv_user_profile($x$${esc(uid)}$x$) p) as profile,`\n  + ` fn_dashboard_snapshot() as dashboard;`;\nreturn [{ json: { sql, cache_key: key, no_cache: noCache } }];"
       },
       "id": "prepin",
       "name": "Préparer SQL (in + lectures)",
@@ -102,7 +102,8 @@
           "id": "SUPABASE_PG",
           "name": "Supabase Postgres"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -185,11 +186,12 @@
           "id": "OPENAI",
           "name": "OpenAI (Bearer)"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "let intent = 'singa';\ntry { const o = JSON.parse($json.choices[0].message.content); if (o && o.intent) intent = String(o.intent); } catch (e) {}\nif (!['singa','operateur','analyste','ecriture'].includes(intent)) intent = 'singa';\nconst mem = $('Mémoire + cache + dashboard').item.json;\nconst ctx = JSON.stringify(mem.context || []);\nconst prof = JSON.stringify(mem.profile || {});\nconst dash = JSON.stringify(mem.dashboard || {});\nconst text = $('Contexte message').item.json.text;\nconst P = {\n  singa: \"Tu es Singa, la voix d'African College (marque culturelle, collectif d'artistes). Réponds en français, court, chaleureux, incarné. N'invente aucun chiffre. Ne promets aucune action sur la boutique : toute modification passe par une validation humaine.\",\n  operateur: \"Tu es l'Opérateur d'African College. Réponds à partir des données fournies (Shopify en lecture, tableau de bord). Ne modifie rien. Si la donnée manque, dis-le plutôt que d'inventer. Français, concis, montants en EUR.\",\n  analyste: \"Tu es l'Analyste d'African College. Explique la performance à partir du tableau de bord fourni (CA, marge %, panier, trafic, conversion, coût IA, erreurs, santé). 3-4 lignes + 1 action prioritaire. Chiffres fournis uniquement.\",\n  ecriture: \"Tu es le garde-fou d'écriture d'African College. NE JAMAIS exécuter d'action boutique. Résume la demande en une proposition claire (objet, action, valeur, impact estimé) destinée à la validation humaine Telegram (Approuver/Refuser). Français.\"\n};\nlet sys = P[intent] + '\\n\\nHistorique récent: ' + ctx + '\\nProfil utilisateur: ' + prof;\nif (intent === 'analyste' || intent === 'operateur') sys += '\\nTableau de bord: ' + dash;\nreturn [{ json: { intent, system: sys, user: text } }];"
+        "jsCode": "let intent = 'singa';\ntry { const o = JSON.parse($json.choices[0].message.content); if (o && o.intent) intent = String(o.intent); } catch (e) {}\nif (!['singa','operateur','analyste','ecriture'].includes(intent)) intent = 'singa';\nconst mem = $('Mémoire + cache + dashboard').item.json;\nconst ctx = JSON.stringify(mem.context || []);\nconst prof = JSON.stringify(mem.profile || {});\nconst dash = JSON.stringify(mem.dashboard || {});\nconst text = $('Contexte message').item.json.text;\nconst P = {\n  singa: \"Tu es Singa, la voix d'African College (marque culturelle, collectif d'artistes). Réponds en français, court, chaleureux, incarné. N'invente aucun chiffre. Ne promets aucune action sur la boutique : toute modification passe par une validation humaine.\",\n  operateur: \"Tu es l'Opérateur d'African College. Réponds à partir des données fournies (Shopify en lecture, tableau de bord). Ne modifie rien. Si la donnée manque, dis-le plutôt que d'inventer. Français, concis, montants en EUR.\",\n  analyste: \"Tu es l'Analyste d'African College. Explique la performance à partir du tableau de bord fourni (CA, marge %, panier, trafic, conversion, coût IA, erreurs, santé). 3-4 lignes + 1 action prioritaire. Chiffres fournis uniquement.\",\n  ecriture: \"Tu es le garde-fou d'écriture d'African College. NE JAMAIS exécuter d'action boutique. Résume la demande en une proposition claire (objet, action, valeur, impact estimé) destinée à la validation humaine Telegram (Approuver/Refuser). Français.\"\n};\nlet sys = P[intent] + '\\n\\nHistorique récent: ' + ctx + '\\nProfil utilisateur: ' + prof;\nif (intent === 'analyste' || intent === 'operateur') sys += '\\nTableau de bord: ' + dash;\n// Escalade : l'analyse complexe monte vers le modèle qualité, le reste reste en mini.\nconst model = intent === 'analyste'\n  ? ($env.OPENAI_DEFAULT_MODEL || 'gpt-4.1')\n  : ($env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini');\nconst maxTokens = intent === 'analyste' ? 480 : 320;\nreturn [{ json: { intent, system: sys, user: text, model, max_tokens: maxTokens } }];"
       },
       "id": "intent",
       "name": "Intent + persona",
@@ -208,7 +210,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini'), max_tokens: 320, messages: [ { role: 'system', content: $json.system }, { role: 'user', content: $json.user } ] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: $json.model, max_tokens: $json.max_tokens, messages: [ { role: 'system', content: $json.system }, { role: 'user', content: $json.user } ] }) }}",
         "options": {}
       },
       "id": "responder",
@@ -227,11 +229,12 @@
           "id": "OPENAI",
           "name": "OpenAI (Bearer)"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "const resp = ($('Réponse IA').item.json.choices[0].message.content) || '';\nconst c = $('Contexte message').item.json;\nconst intent = $('Intent + persona').item.json.intent;\nconst key = $('Préparer SQL (in + lectures)').item.json.cache_key;\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nlet sql = `select fn_conv_remember($x$${esc(c.user_id)}$x$,$x$${esc(c.chat_id)}$x$,$x$${esc(c.user_name)}$x$,'out',$x$${esc(intent)}$x$,$x$${esc(intent)}$x$,$x$${esc(resp)}$x$,null);`;\nif (intent === 'singa') { sql += `\\nselect fn_cache_put($x$${esc(key)}$x$,$x$${esc(c.text)}$x$,$x$${esc(resp)}$x$,24);`; }\nreturn [{ json: { sql, response: resp } }];"
+        "jsCode": "const resp = ($('Réponse IA').item.json.choices[0].message.content) || '';\nconst c = $('Contexte message').item.json;\nconst intent = $('Intent + persona').item.json.intent;\nconst key = $('Préparer SQL (in + lectures)').item.json.cache_key;\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nlet sql = `select fn_conv_remember($x$${esc(c.user_id)}$x$,$x$${esc(c.chat_id)}$x$,$x$${esc(c.user_name)}$x$,'out',$x$${esc(intent)}$x$,$x$${esc(intent)}$x$,$x$${esc(resp)}$x$,null);`;\nconst noCache = $('Préparer SQL (in + lectures)').item.json.no_cache === true;\nif (intent === 'singa' && !noCache) { sql += `\\nselect fn_cache_put($x$${esc(key)}$x$,$x$${esc(c.text)}$x$,$x$${esc(resp)}$x$,24);`; }\nreturn [{ json: { sql, response: resp } }];"
       },
       "id": "prepout",
       "name": "Préparer SQL (out + cache)",
@@ -245,7 +248,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "={{ $json.sql }}",
+        "query": "={{ $('Préparer SQL (out + cache)').item.json.sql }}",
         "options": {}
       },
       "id": "recout",
@@ -253,7 +256,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1980,
+        2200,
         140
       ],
       "retryOnFail": true,
@@ -264,7 +267,8 @@
           "id": "SUPABASE_PG",
           "name": "Supabase Postgres"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -277,8 +281,70 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        2200,
+        1980,
         140
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $json.error || {};\nconst fallback = \"Le campus rencontre un souci technique — réessaie dans un instant, on s'en occupe.\";\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nconst msg = String(err.message || err.description || 'Erreur inconnue').slice(0, 500);\nconst nodeName = (err.node && err.node.name) ? String(err.node.name) : 'inconnu';\nconst execId = (typeof $execution !== 'undefined' && $execution.id) ? String($execution.id) : '';\nconst detail = JSON.stringify({ name: err.name || null, node: nodeName, http: err.httpCode || null }).slice(0, 1000);\nconst sql_log = `select fn_log_error('ac-core-telegram-bot', $x$${esc(nodeName)}$x$, $x$${esc(execId)}$x$, 'critical', $x$${esc(msg)}$x$, $x$${esc(detail)}$x$::jsonb);`;\nreturn [{ json: { sql_log, fallback } }];"
+      },
+      "id": "preperr",
+      "name": "Préparer secours",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_log }}",
+        "options": {}
+      },
+      "id": "logerr",
+      "name": "Journaliser erreur",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        420
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Contexte message').item.json.chat_id }}",
+        "text": "={{ $('Préparer secours').item.json.fallback }}",
+        "additionalFields": {}
+      },
+      "id": "senderr",
+      "name": "Répondre (secours)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1760,
+        420
       ],
       "retryOnFail": true,
       "maxTries": 4,
@@ -333,6 +399,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Préparer secours",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -362,6 +435,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Préparer secours",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -384,10 +464,28 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Préparer secours",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Préparer SQL (out + cache)": {
+      "main": [
+        [
+          {
+            "node": "Répondre (IA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Répondre (IA)": {
       "main": [
         [
           {
@@ -398,11 +496,22 @@
         ]
       ]
     },
-    "Enregistrer réponse": {
+    "Préparer secours": {
       "main": [
         [
           {
-            "node": "Répondre (IA)",
+            "node": "Journaliser erreur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Journaliser erreur": {
+      "main": [
+        [
+          {
+            "node": "Répondre (secours)",
             "type": "main",
             "index": 0
           }

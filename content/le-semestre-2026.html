@@ -1,0 +1,372 @@
+<title>Le Semestre</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  :root {
+    --paper: #FAFAF6;
+    --ink: #191A17;
+    --ink-soft: #4C4E48;
+    --rule: #D8D9D0;
+    --rule-strong: #191A17;
+    --green: #1E5C3A;
+    --green-soft: #EAF1EB;
+    --red: #A3242A;
+    --chip-ink: #FAFAF6;
+    --display: "Archivo Black", "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "Courier New", monospace;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #151613;
+      --ink: #EDEEE7;
+      --ink-soft: #A6A89E;
+      --rule: #33352F;
+      --rule-strong: #EDEEE7;
+      --green: #57A97A;
+      --green-soft: #1C2A20;
+      --red: #E0666C;
+      --chip-ink: #151613;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #151613;
+    --ink: #EDEEE7;
+    --ink-soft: #A6A89E;
+    --rule: #33352F;
+    --rule-strong: #EDEEE7;
+    --green: #57A97A;
+    --green-soft: #1C2A20;
+    --red: #E0666C;
+    --chip-ink: #151613;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.55;
+    margin: 0;
+    padding-block: 0 64px;
+    padding-inline: 20px;
+  }
+  .sheet { max-width: 880px; margin: 0 auto; }
+
+  a { color: inherit; }
+  a:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  /* ---------- Masthead ---------- */
+  header.mast { padding-block: 40px 28px; border-bottom: 4px solid var(--rule-strong); }
+  .mast .school {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--ink-soft);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .mast h1 {
+    font-family: var(--display);
+    font-size: clamp(52px, 12vw, 118px);
+    line-height: .92; letter-spacing: -.015em;
+    margin: 18px 0 10px; text-transform: uppercase; text-wrap: balance;
+  }
+  .mast h1 .accent { color: var(--green); }
+  .mast .lesson {
+    font-family: var(--serif); font-style: italic;
+    font-size: clamp(19px, 3vw, 24px); color: var(--ink-soft);
+    margin: 0 0 22px; max-width: 34em;
+  }
+  .mast .thesis {
+    max-width: 40em; margin: 0; color: var(--ink);
+    font-size: 16.5px;
+  }
+
+  /* ---------- Legend ---------- */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-soft);
+    padding-block: 14px; border-bottom: 1px solid var(--rule);
+  }
+  .legend b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Sections ---------- */
+  section { padding-block: 8px 0; }
+  .unit-head {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding-block: 34px 6px;
+  }
+  .unit-head .unit-no {
+    font-family: var(--mono); font-size: 13px; letter-spacing: .18em;
+    color: var(--green); text-transform: uppercase;
+  }
+  .unit-head h2 {
+    font-family: var(--display); font-size: clamp(24px, 4.5vw, 34px);
+    margin: 0; text-transform: uppercase; letter-spacing: .01em; text-wrap: balance;
+  }
+  .unit-note { font-family: var(--serif); font-style: italic; color: var(--ink-soft); font-size: 17px; margin: 2px 0 10px; }
+
+  /* ---------- Course rows ---------- */
+  .course {
+    display: grid; grid-template-columns: 176px 1fr; gap: 8px 28px;
+    padding-block: 20px; border-top: 1px solid var(--rule);
+  }
+  .course:first-of-type { border-top: 2px solid var(--rule-strong); }
+  .when {
+    font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .when .city {
+    display: block; margin-top: 4px; color: var(--ink-soft);
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  }
+  .what h3 { font-family: var(--body); font-weight: 600; font-size: 19px; margin: 0 0 2px; letter-spacing: -.01em; }
+  .what h3 a { text-decoration-color: var(--green); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .venue { font-family: var(--mono); font-size: 12.5px; letter-spacing: .06em; color: var(--ink-soft); margin: 0 0 6px; text-transform: uppercase; }
+  .what p.blurb { margin: 0; color: var(--ink); max-width: 58ch; font-size: 15.5px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tag {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--green); border: 1px solid var(--green);
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .tag.hot { color: var(--chip-ink); background: var(--red); border-color: var(--red); }
+  .tag.plain { color: var(--ink-soft); border-color: var(--rule); }
+
+  /* Featured winter block */
+  .feature {
+    margin-top: 26px; padding: 26px 26px 30px;
+    background: var(--green-soft); border-top: 4px solid var(--green);
+  }
+  .feature .when { color: var(--green); font-weight: 500; }
+  .feature h3 {
+    font-family: var(--display); font-size: clamp(26px, 5vw, 40px);
+    text-transform: uppercase; line-height: 1.02; margin: 8px 0 6px; text-wrap: balance;
+  }
+  .feature .theme { font-family: var(--serif); font-style: italic; font-size: 19px; margin: 0 0 10px; color: var(--ink); }
+  .feature p { max-width: 60ch; margin: 0; font-size: 15.5px; }
+  .feature .tags { margin-top: 14px; }
+
+  /* Permanent addresses */
+  .campus { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 32px; border-top: 2px solid var(--rule-strong); }
+  .campus .course { grid-template-columns: 1fr; gap: 2px; border-top: 1px solid var(--rule); }
+  .campus .course:nth-child(-n+2) { border-top: 0; }
+
+  footer {
+    margin-top: 48px; padding-top: 16px; border-top: 4px solid var(--rule-strong);
+    display: flex; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+
+  @media (max-width: 620px) {
+    .course { grid-template-columns: 1fr; gap: 6px; }
+    .when .city { display: inline; margin-left: 10px; }
+    .campus { grid-template-columns: 1fr; }
+    .campus .course:nth-child(2) { border-top: 1px solid var(--rule); }
+  }
+</style>
+
+<div class="sheet">
+  <header class="mast">
+    <div class="school">
+      <span>African College</span>
+      <span>Année 2026–2027</span>
+    </div>
+    <h1>Le<br>Semestre<span class="accent">.</span></h1>
+    <p class="lesson">L'amphithéâtre qu'on n'a pas eu, et celui qu'on se construit — ville par ville.</p>
+    <p class="thesis">L'agenda des arts afro-américains, africains et de la diaspora&nbsp;:
+    expositions, foires et biennales à voir entre la rentrée 2026 et l'hiver.
+    Sélection du campus, mise à jour au 20&nbsp;septembre&nbsp;2026.</p>
+  </header>
+
+  <div class="legend">
+    <span><b>Unité 1</b> — séance en cours</span>
+    <span><b>Unité 2</b> — rentrée d'automne</span>
+    <span><b>Unité 3</b> — session d'hiver</span>
+    <span><b>Annexe</b> — le campus permanent</span>
+  </div>
+
+  <!-- ================= UNITÉ 1 ================= -->
+  <section>
+    <div class="unit-head">
+      <span class="unit-no">Unité 1</span>
+      <h2>Séance en cours</h2>
+    </div>
+    <p class="unit-note">Déjà accrochées. On y va sans attendre.</p>
+
+    <article class="course">
+      <div class="when">depuis le 12·06·26<span class="city">Washington, D.C.</span></div>
+      <div class="what">
+        <h3><a href="https://nmaahc.si.edu/explore/exhibitions/revelation">Revelation — A Journey into Abstraction</a></h3>
+        <p class="venue">National Museum of African American History &amp; Culture (Smithsonian)</p>
+        <p class="blurb">38 peintres, photographes et sculpteur·ices africain·es-américain·es et l'abstraction,
+        du milieu du XXᵉ siècle à aujourd'hui — en cinq mouvements, pour les 10 ans du musée.</p>
+        <div class="tags"><span class="tag">Exposition</span><span class="tag plain">Entrée libre</span></div>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="when">10·09·26 → 31·01·27<span class="city">New York — Harlem</span></div>
+      <div class="what">
+        <h3><a href="https://www.studiomuseum.org/exhibitions-and-events">Geometries + Dreams of This Future</a></h3>
+        <p class="venue">Studio Museum in Harlem — nouveau bâtiment, première année</p>
+        <p class="blurb">« Geometries » (Julie Mehretu, Alma Thomas, Jack Whitten…) et la collection
+        de Peggy Cooper Cafritz (Kerry James Marshall, Simone Leigh, Deana Lawson, Toyin Ojih Odutola —
+        jusqu'au 28·02·27). Le musée vient de recevoir 2&nbsp;M$ de Beyoncé&nbsp;: Harlem est la salle de classe du moment.</p>
+        <div class="tags"><span class="tag">Exposition</span><span class="tag">Collection</span></div>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="when">17·03 → 20·09·26<span class="city">Paris 7ᵉ</span></div>
+      <div class="what">
+        <h3><a href="https://m.quaibranly.fr/en/exhibitions-and-events/at-the-museum/exhibitions-1">1913–1923, l'esprit du temps</a></h3>
+        <p class="venue">Musée du quai Branly — Jacques Chirac</p>
+        <p class="blurb">La décennie où Paris a cessé de voir des «&nbsp;objets&nbsp;» et commencé à voir des
+        chefs-d'œuvre — des ateliers de Picasso et Derain aux vitrines de Brummer.</p>
+        <div class="tags"><span class="tag hot">Dernier jour — aujourd'hui</span></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= UNITÉ 2 ================= -->
+  <section>
+    <div class="unit-head">
+      <span class="unit-no">Unité 2</span>
+      <h2>Rentrée d'automne</h2>
+    </div>
+    <p class="unit-note">Quatre semaines, quatre villes. Le cœur du semestre.</p>
+
+    <article class="course">
+      <div class="when">24·09·26 → 04·01·27<span class="city">New York</span></div>
+      <div class="what">
+        <h3><a href="https://www.newmuseum.org">Arthur Jafa — I Am Tony</a></h3>
+        <p class="venue">New Museum, Bowery</p>
+        <p class="blurb">La plus grande rétrospective jamais consacrée à Jafa&nbsp;: quatre décennies d'images,
+        deux étages, des œuvres nouvelles aux côtés de «&nbsp;Love is the Message, The Message is Death&nbsp;».
+        Hommage au batteur Tony Williams.</p>
+        <div class="tags"><span class="tag">Rétrospective</span><span class="tag">Vidéo</span></div>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="when">30·09 → 04·10·26<span class="city">San Francisco</span></div>
+      <div class="what">
+        <h3><a href="https://www.moadsf.org/">Black Art Week — 3ᵉ édition + réouverture du MoAD</a></h3>
+        <p class="venue">Museum of the African Diaspora &amp; toute la ville</p>
+        <p class="blurb">Le MoAD rouvre le 30 septembre avec ses accrochages 2026–27 et mène une semaine
+        d'expositions, de performances et de rencontres dans toute la baie.</p>
+        <div class="tags"><span class="tag">Festival</span><span class="tag">Réouverture</span></div>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="when">dès le 01·10·26<span class="city">New York — Harlem</span></div>
+      <div class="what">
+        <h3><a href="https://www.studiomuseum.org/press/studio-museum-in-harlem-announces-fall-2026-season">A sustained becoming — Artists in Residence 2026</a></h3>
+        <p class="venue">Studio Museum in Harlem</p>
+        <p class="blurb">Derriann Pharr, Simonette Quamina et Taylor Simmons — la résidence qui, depuis 1968,
+        annonce qui comptera demain. La leçon d'anticipation du semestre.</p>
+        <div class="tags"><span class="tag">Émergence</span></div>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="when">15 → 18·10·26<span class="city">Londres</span></div>
+      <div class="what">
+        <h3><a href="https://www.1-54.com/london/">1-54 Contemporary African Art Fair</a></h3>
+        <p class="venue">Somerset House — semaine de Frieze</p>
+        <p class="blurb">La foire de référence de l'art contemporain africain et diasporique, dans la cour
+        néoclassique de Somerset House. Ouverture publique le vendredi 16.</p>
+        <div class="tags"><span class="tag">Foire</span></div>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="when">23 → 25·10·26<span class="city">Paris 3ᵉ</span></div>
+      <div class="what">
+        <h3><a href="https://akaafair.com/en/">AKAA — Also Known As Africa, 11ᵉ édition</a></h3>
+        <p class="venue">Carreau du Temple — Paris Art Week</p>
+        <p class="blurb">Plus de 70 artistes sous la halle métallique. Cette édition met la photographie
+        à l'honneur (bicentenaire du médium) et explore le papier comme matière. Ven–sam 12h–20h, dim 12h–18h.</p>
+        <div class="tags"><span class="tag">Foire</span><span class="tag">Photographie</span></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= UNITÉ 3 ================= -->
+  <section>
+    <div class="unit-head">
+      <span class="unit-no">Unité 3</span>
+      <h2>Session d'hiver</h2>
+    </div>
+
+    <div class="feature">
+      <div class="when">19·11 → 19·12·26 — Dakar, Sénégal</div>
+      <h3><a href="https://biennialfoundation.org/biennials/dak%E2%80%99art-the-biennial-of-the-contemporary-african-art/">Dak'Art — 16ᵉ Biennale de l'art africain contemporain</a></h3>
+      <p class="theme">«&nbsp;(Anti)Fragility — arts de la réparation et stratégies de contre-choc.&nbsp;»</p>
+      <p>Le plus grand rendez-vous d'art contemporain du continent, sous la direction artistique de
+      Morad Montazami. Un mois d'expositions dans toute la ville — le «&nbsp;OFF&nbsp;» de Dakar vaut
+      à lui seul le voyage. Si le campus ne fait qu'un déplacement cette année, c'est celui-là.</p>
+      <div class="tags"><span class="tag">Biennale</span><span class="tag">Voyage d'étude</span></div>
+    </div>
+
+    <article class="course" style="margin-top:22px">
+      <div class="when">prochaine étape<span class="city">Bruxelles</span></div>
+      <div class="what">
+        <h3><a href="https://www.barbican.org.uk/our-story/press-room/barbican-opens-major-international-exhibition-project-a-black-planet-the-art">Project a Black Planet — The Art and Culture of Panafrica</a></h3>
+        <p class="venue">Après Chicago, Barcelone et le Barbican (clôturé le 06·09) — annoncé au KANAL-Centre Pompidou</p>
+        <p class="blurb">Plus de 300 œuvres sur un siècle de panafricanisme — peintures, affiches, revues, films.
+        L'itinérance continue&nbsp;: dates bruxelloises à surveiller.</p>
+        <div class="tags"><span class="tag plain">À suivre</span></div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= ANNEXE ================= -->
+  <section>
+    <div class="unit-head">
+      <span class="unit-no">Annexe</span>
+      <h2>Le campus permanent</h2>
+    </div>
+    <p class="unit-note">Les salles ouvertes toute l'année — pour réviser entre deux rendez-vous.</p>
+
+    <div class="campus">
+      <article class="course">
+        <div class="what">
+          <h3><a href="https://afikaris.com/">AFIKARIS</a></h3>
+          <p class="venue">Galerie — Paris 3ᵉ</p>
+          <p class="blurb">Jeune galerie de référence pour la scène contemporaine du continent, à deux pas du Carreau du Temple.</p>
+        </div>
+      </article>
+      <article class="course">
+        <div class="what">
+          <h3><a href="https://www.studiomuseum.org/">Studio Museum in Harlem</a></h3>
+          <p class="venue">Musée — New York</p>
+          <p class="blurb">L'institution de l'art des artistes noirs depuis 1968, dans son bâtiment neuf de la 125ᵉ rue.</p>
+        </div>
+      </article>
+      <article class="course">
+        <div class="what">
+          <h3><a href="https://m.quaibranly.fr/en/exhibitions-and-events/at-the-museum/exhibitions-1">Musée du quai Branly</a></h3>
+          <p class="venue">Musée — Paris 7ᵉ</p>
+          <p class="blurb">Les collections d'Afrique en permanence, et une expo « Africa Fashion » qui a marqué le printemps 2026.</p>
+        </div>
+      </article>
+      <article class="course">
+        <div class="what">
+          <h3><a href="https://www.moadsf.org/">MoAD</a></h3>
+          <p class="venue">Musée — San Francisco</p>
+          <p class="blurb">Le Museum of the African Diaspora, cœur battant de la scène de la côte Ouest.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <footer>
+    <span>African College — Le Semestre</span>
+    <span>Vérifier horaires &amp; billets avant déplacement</span>
+    <span>MàJ 20·09·2026</span>
+  </footer>
+</div>

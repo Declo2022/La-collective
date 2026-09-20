@@ -5,66 +5,160 @@
   },
   "nodes": [
     {
-      "parameters": { "rule": { "interval": [{ "field": "days", "triggerAtHour": 7 }] } },
-      "id": "cron", "name": "Chaque jour 07:00",
-      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 0]
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "cron",
+      "name": "Chaque jour 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
-        "assignments": { "assignments": [
-          { "id": "d1", "name": "since", "value": "={{ $today.minus({ days: 1 }).toISO() }}", "type": "string" },
-          { "id": "d2", "name": "report_date", "value": "={{ $today.minus({ days: 1 }).toFormat('yyyy-MM-dd') }}", "type": "string" }
-        ] }
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "since",
+              "value": "={{ $today.minus({ days: 1 }).toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "d2",
+              "name": "report_date",
+              "value": "={{ $today.minus({ days: 1 }).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            }
+          ]
+        }
       },
-      "id": "dates", "name": "Fenêtre (veille)",
-      "type": "n8n-nodes-base.set", "typeVersion": 3.4, "position": [200, 0]
+      "id": "dates",
+      "name": "Fenêtre (veille)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/oauth/access_token",
-        "sendBody": true, "contentType": "form-urlencoded",
-        "bodyParameters": { "parameters": [
-          { "name": "grant_type", "value": "client_credentials" },
-          { "name": "client_id", "value": "={{ $env.SHOPIFY_CLIENT_ID }}" },
-          { "name": "client_secret", "value": "={{ $env.SHOPIFY_CLIENT_SECRET }}" }
-        ] },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ $env.SHOPIFY_CLIENT_ID }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $env.SHOPIFY_CLIENT_SECRET }}"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "shopify-token", "name": "Obtenir token Shopify",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [300, 0]
+      "id": "shopify-token",
+      "name": "Obtenir token Shopify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "GET",
         "url": "=https://{{ $env.SHOPIFY_STORE_DOMAIN }}/admin/api/{{ $env.SHOPIFY_API_VERSION }}/orders.json",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "X-Shopify-Access-Token", "value": "={{ $('Obtenir token Shopify').item.json.access_token }}" }
-        ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Shopify-Access-Token",
+              "value": "={{ $('Obtenir token Shopify').item.json.access_token }}"
+            }
+          ]
+        },
         "sendQuery": true,
-        "queryParameters": { "parameters": [
-          { "name": "status", "value": "any" },
-          { "name": "created_at_min", "value": "={{ $('Fenêtre (veille)').item.json.since }}" },
-          { "name": "limit", "value": "250" }
-        ] },
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "any"
+            },
+            {
+              "name": "created_at_min",
+              "value": "={{ $('Fenêtre (veille)').item.json.since }}"
+            },
+            {
+              "name": "limit",
+              "value": "250"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "shopify-read", "name": "Lire commandes Shopify (read-only)",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 0]
+      "id": "shopify-read",
+      "name": "Lire commandes Shopify (read-only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ]
     },
     {
       "parameters": {
         "jsCode": "// Construit un SQL sûr : dollar-quoting du JSON (immunise virgules/guillemets/newlines).\nconst orders = $json.orders || [];\nconst json = JSON.stringify(orders).replace(/\\$oc\\$/g, '');\nconst sql = `select fn_upsert_shopify_orders($oc$${json}$oc$::jsonb) as upserted;`;\nreturn [{ json: { sql } }];"
       },
-      "id": "prep-upsert", "name": "Préparer SQL upsert",
-      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [600, 0]
+      "id": "prep-upsert",
+      "name": "Préparer SQL upsert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ]
     },
     {
-      "parameters": { "operation": "executeQuery", "query": "={{ $json.sql }}", "options": {} },
-      "id": "upsert", "name": "Upsert commandes (miroir)",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [800, 0],
-      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "upsert",
+      "name": "Upsert commandes (miroir)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        800,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
@@ -72,21 +166,46 @@
         "query": "=select fn_daily_shopify_report('{{ $('Fenêtre (veille)').item.json.report_date }}'::date) as report;",
         "options": {}
       },
-      "id": "report", "name": "Agrégats du jour (SQL)",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1000, 0],
-      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+      "id": "report",
+      "name": "Agrégats du jour (SQL)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
-        "method": "POST", "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-        "sendBody": true, "specifyBody": "json",
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini'), max_tokens: 220, messages: [ { role: 'system', content: \"Assistant African College. Résume en 3-4 lignes en français le rapport. Chiffres fournis uniquement, n'invente rien.\" }, { role: 'user', content: JSON.stringify($json.report) } ] }) }}",
         "options": {}
       },
-      "id": "summary", "name": "Résumé IA (mini, coût min.)",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [1200, 0],
-      "credentials": { "httpHeaderAuth": { "id": "OPENAI", "name": "OpenAI (Bearer)" } }
+      "id": "summary",
+      "name": "Résumé IA (mini, coût min.)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OPENAI",
+          "name": "OpenAI (Bearer)"
+        }
+      }
     },
     {
       "parameters": {
@@ -94,33 +213,163 @@
         "query": "=select fn_log_event('llm_call','daily_report_summary','workflow',null,'report-shopify-daily-cron',null,null,null,'info', {{ $json.usage.total_tokens }}, {{ ($json.usage.total_tokens/1000000.0*0.6).toFixed(6) }}, null, null, '{}'::jsonb) as event_id;",
         "options": {}
       },
-      "id": "logcost", "name": "Journaliser le coût IA",
-      "type": "n8n-nodes-base.postgres", "typeVersion": 2.5, "position": [1400, 0],
-      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+      "id": "logcost",
+      "name": "Journaliser le coût IA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1400,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
         "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
         "text": "=📊 *Rapport African College* — {{ $('Fenêtre (veille)').item.json.report_date }}\\n\\n{{ $('Résumé IA (mini, coût min.)').item.json.choices[0].message.content }}\\n\\nCA: {{ $('Agrégats du jour (SQL)').item.json.report.revenue }} € · Commandes: {{ $('Agrégats du jour (SQL)').item.json.report.orders }} · Panier: {{ $('Agrégats du jour (SQL)').item.json.report.aov }} € · Remb.: {{ $('Agrégats du jour (SQL)').item.json.report.refunds }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "telegram", "name": "Envoyer le rapport (Telegram)",
-      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1600, 0],
-      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+      "id": "telegram",
+      "name": "Envoyer le rapport (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000
     }
   ],
   "connections": {
-    "Chaque jour 07:00": { "main": [[{ "node": "Fenêtre (veille)", "type": "main", "index": 0 }]] },
-    "Fenêtre (veille)": { "main": [[{ "node": "Obtenir token Shopify", "type": "main", "index": 0 }]] },
-    "Obtenir token Shopify": { "main": [[{ "node": "Lire commandes Shopify (read-only)", "type": "main", "index": 0 }]] },
-    "Lire commandes Shopify (read-only)": { "main": [[{ "node": "Préparer SQL upsert", "type": "main", "index": 0 }]] },
-    "Préparer SQL upsert": { "main": [[{ "node": "Upsert commandes (miroir)", "type": "main", "index": 0 }]] },
-    "Upsert commandes (miroir)": { "main": [[{ "node": "Agrégats du jour (SQL)", "type": "main", "index": 0 }]] },
-    "Agrégats du jour (SQL)": { "main": [[{ "node": "Résumé IA (mini, coût min.)", "type": "main", "index": 0 }]] },
-    "Résumé IA (mini, coût min.)": { "main": [[{ "node": "Journaliser le coût IA", "type": "main", "index": 0 }]] },
-    "Journaliser le coût IA": { "main": [[{ "node": "Envoyer le rapport (Telegram)", "type": "main", "index": 0 }]] }
+    "Chaque jour 07:00": {
+      "main": [
+        [
+          {
+            "node": "Fenêtre (veille)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fenêtre (veille)": {
+      "main": [
+        [
+          {
+            "node": "Obtenir token Shopify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtenir token Shopify": {
+      "main": [
+        [
+          {
+            "node": "Lire commandes Shopify (read-only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire commandes Shopify (read-only)": {
+      "main": [
+        [
+          {
+            "node": "Préparer SQL upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer SQL upsert": {
+      "main": [
+        [
+          {
+            "node": "Upsert commandes (miroir)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert commandes (miroir)": {
+      "main": [
+        [
+          {
+            "node": "Agrégats du jour (SQL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrégats du jour (SQL)": {
+      "main": [
+        [
+          {
+            "node": "Résumé IA (mini, coût min.)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Résumé IA (mini, coût min.)": {
+      "main": [
+        [
+          {
+            "node": "Journaliser le coût IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Journaliser le coût IA": {
+      "main": [
+        [
+          {
+            "node": "Envoyer le rapport (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lib-error-handler"
+  },
   "active": false,
-  "tags": [{ "name": "report" }, { "name": "mvp" }, { "name": "wf-1" }]
+  "tags": [
+    {
+      "name": "report"
+    },
+    {
+      "name": "mvp"
+    },
+    {
+      "name": "wf-1"
+    }
+  ]
 }

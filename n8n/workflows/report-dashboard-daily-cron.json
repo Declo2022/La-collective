@@ -5,12 +5,25 @@
   },
   "nodes": [
     {
-      "parameters": { "rule": { "interval": [{ "field": "days", "triggerAtHour": 7, "triggerAtMinute": 30 }] } },
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 7,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
       "id": "cron",
       "name": "Chaque jour 07:30",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -22,28 +35,79 @@
       "name": "Tableau de bord (SQL)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [220, 0],
-      "credentials": { "postgres": { "id": "SUPABASE_PG", "name": "Supabase Postgres" } }
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
     },
     {
       "parameters": {
         "chatId": "={{ $env.TELEGRAM_APPROVALS_CHAT_ID }}",
         "text": "=📊 *Tableau de bord — African College*\n\n💶 *Ventes* ({{ $json.d.ventes.date || '—' }})\nCA: {{ $json.d.ventes.revenue_eur }} € · Panier: {{ $json.d.ventes.aov_eur || '—' }} € · Marge: {{ $json.d.ventes.gross_margin_eur || '—' }} € ({{ $json.d.ventes.gross_margin_pct || '—' }}%)\n\n📈 *Trafic* (GA4/GSC)\nClics SEO: {{ $json.d.trafic.organic_clicks || '—' }} · Conversion: {{ $json.d.trafic.conversion_pct || '—' }}%\n\n⚙️ *Opérations*\nCoût IA jour: {{ $json.d.operations.cost_today_usd }} $ · Erreurs 24h: {{ $json.d.operations.errors_24h }} · Alertes: {{ $json.d.operations.warnings_24h }} · Dead-letters: {{ $json.d.operations.dead_letters_open }} · Tâches en attente: {{ $json.d.operations.tasks_pending }}\n\n🔌 *Santé services*: {{ $json.d.sante_services.ok }}/{{ $json.d.sante_services.total }} OK{{ $json.d.sante_services.error > 0 ? ' — ⚠️ ' + $json.d.sante_services.error + ' en erreur' : '' }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
       "id": "telegram",
       "name": "Envoyer le tableau de bord",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [440, 0],
-      "credentials": { "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" } }
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000
     }
   ],
   "connections": {
-    "Chaque jour 07:30": { "main": [[{ "node": "Tableau de bord (SQL)", "type": "main", "index": 0 }]] },
-    "Tableau de bord (SQL)": { "main": [[{ "node": "Envoyer le tableau de bord", "type": "main", "index": 0 }]] }
+    "Chaque jour 07:30": {
+      "main": [
+        [
+          {
+            "node": "Tableau de bord (SQL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tableau de bord (SQL)": {
+      "main": [
+        [
+          {
+            "node": "Envoyer le tableau de bord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1", "errorWorkflow": "lib-error-handler" },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lib-error-handler"
+  },
   "active": false,
-  "tags": [{ "name": "report" }, { "name": "dashboard" }]
+  "tags": [
+    {
+      "name": "report"
+    },
+    {
+      "name": "dashboard"
+    }
+  ]
 }

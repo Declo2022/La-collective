@@ -8,10 +8,22 @@
       "parameters": {
         "workflowInputs": {
           "values": [
-            { "name": "request_id", "type": "string" },
-            { "name": "action_type", "type": "string" },
-            { "name": "summary", "type": "string" },
-            { "name": "cost_usd", "type": "number" }
+            {
+              "name": "request_id",
+              "type": "string"
+            },
+            {
+              "name": "action_type",
+              "type": "string"
+            },
+            {
+              "name": "summary",
+              "type": "string"
+            },
+            {
+              "name": "cost_usd",
+              "type": "number"
+            }
           ]
         }
       },
@@ -19,7 +31,10 @@
       "name": "Appel (Execute Workflow)",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -35,8 +50,18 @@
               {
                 "row": {
                   "buttons": [
-                    { "text": "✅ Valider", "additionalFields": { "callback_data": "=approve:{{ $json.request_id }}" } },
-                    { "text": "❌ Refuser", "additionalFields": { "callback_data": "=reject:{{ $json.request_id }}" } }
+                    {
+                      "text": "✅ Valider",
+                      "additionalFields": {
+                        "callback_data": "=approve:{{ $json.request_id }}"
+                      }
+                    },
+                    {
+                      "text": "❌ Refuser",
+                      "additionalFields": {
+                        "callback_data": "=reject:{{ $json.request_id }}"
+                      }
+                    }
                   ]
                 }
               }
@@ -48,16 +73,47 @@
       "name": "Envoyer sur Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [220, 0],
+      "position": [
+        220,
+        0
+      ],
       "credentials": {
-        "telegramApi": { "id": "TELEGRAM_BOT", "name": "Telegram Bot" }
-      }
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000
     }
   ],
   "connections": {
-    "Appel (Execute Workflow)": { "main": [[{ "node": "Envoyer sur Telegram", "type": "main", "index": 0 }]] }
+    "Appel (Execute Workflow)": {
+      "main": [
+        [
+          {
+            "node": "Envoyer sur Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "active": false,
-  "tags": [{ "name": "approval" }, { "name": "mvp" }, { "name": "wf-9" }]
+  "tags": [
+    {
+      "name": "approval"
+    },
+    {
+      "name": "mvp"
+    },
+    {
+      "name": "wf-9"
+    }
+  ]
 }

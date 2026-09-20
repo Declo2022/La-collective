@@ -1,0 +1,429 @@
+{
+  "name": "ac-core-telegram-bot",
+  "meta": {
+    "description": "AC Core — bot Telegram 24/7. Telegram Trigger -> contexte -> mémoire+cache+dashboard (Supabase) -> si cache 24h: réponse immédiate ; sinon routeur d'intention (modèle léger) -> persona (Singa/Opérateur/Analyste/garde-fou écriture) -> mémorise+cache -> réponse. chat.id TOUJOURS dynamique (jamais fixe). Retry auto sur LLM/Telegram. Aucune écriture Shopify (garde-fou écriture = proposition pour validation). BROUILLON non activé."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "user_id",
+              "value": "={{ $json.message.from.id }}",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "chat_id",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "user_name",
+              "value": "={{ $json.message.from.first_name }}",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "text",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ctx",
+      "name": "Contexte message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = $json;\nconst uid = String(t.user_id || '');\nconst chat = String(t.chat_id || '');\nconst name = String(t.user_name || '');\nconst text = String(t.text || '');\nconst key = text.toLowerCase().trim().slice(0, 200);\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nconst sql = `select fn_conv_remember($x$${esc(uid)}$x$,$x$${esc(chat)}$x$,$x$${esc(name)}$x$,'in',null,null,$x$${esc(text)}$x$,null);\\n`\n  + `select fn_cache_get($x$${esc(key)}$x$) as cached,`\n  + ` (select coalesce(jsonb_agg(jsonb_build_object('d',direction,'a',agent,'c',content) order by created_at desc),'[]'::jsonb) from fn_conv_recent($x$${esc(uid)}$x$,6)) as context,`\n  + ` (select to_jsonb(p) from fn_conv_user_profile($x$${esc(uid)}$x$) p) as profile,`\n  + ` fn_dashboard_snapshot() as dashboard;`;\nreturn [{ json: { sql, cache_key: key } }];"
+      },
+      "id": "prepin",
+      "name": "Préparer SQL (in + lectures)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "mem",
+      "name": "Mémoire + cache + dashboard",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.cached }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      },
+      "id": "ifcache",
+      "name": "Cache 24h ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Contexte message').item.json.chat_id }}",
+        "text": "={{ $('Mémoire + cache + dashboard').item.json.cached }}",
+        "additionalFields": {}
+      },
+      "id": "sendcache",
+      "name": "Répondre (cache)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        -140
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini'), max_tokens: 20, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: \"Classe le message en UNE intention et réponds STRICTEMENT {\\\"intent\\\":\\\"<v>\\\"}. Valeurs: singa (discussion/marque), operateur (données Shopify en lecture), analyste (performance/chiffres), ecriture (demande de modification boutique). En cas de doute: singa.\" }, { role: 'user', content: $('Contexte message').item.json.text } ] }) }}",
+        "options": {}
+      },
+      "id": "router",
+      "name": "Routeur d'intention (léger)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        140
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OPENAI",
+          "name": "OpenAI (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let intent = 'singa';\ntry { const o = JSON.parse($json.choices[0].message.content); if (o && o.intent) intent = String(o.intent); } catch (e) {}\nif (!['singa','operateur','analyste','ecriture'].includes(intent)) intent = 'singa';\nconst mem = $('Mémoire + cache + dashboard').item.json;\nconst ctx = JSON.stringify(mem.context || []);\nconst prof = JSON.stringify(mem.profile || {});\nconst dash = JSON.stringify(mem.dashboard || {});\nconst text = $('Contexte message').item.json.text;\nconst P = {\n  singa: \"Tu es Singa, la voix d'African College (marque culturelle, collectif d'artistes). Réponds en français, court, chaleureux, incarné. N'invente aucun chiffre. Ne promets aucune action sur la boutique : toute modification passe par une validation humaine.\",\n  operateur: \"Tu es l'Opérateur d'African College. Réponds à partir des données fournies (Shopify en lecture, tableau de bord). Ne modifie rien. Si la donnée manque, dis-le plutôt que d'inventer. Français, concis, montants en EUR.\",\n  analyste: \"Tu es l'Analyste d'African College. Explique la performance à partir du tableau de bord fourni (CA, marge %, panier, trafic, conversion, coût IA, erreurs, santé). 3-4 lignes + 1 action prioritaire. Chiffres fournis uniquement.\",\n  ecriture: \"Tu es le garde-fou d'écriture d'African College. NE JAMAIS exécuter d'action boutique. Résume la demande en une proposition claire (objet, action, valeur, impact estimé) destinée à la validation humaine Telegram (Approuver/Refuser). Français.\"\n};\nlet sys = P[intent] + '\\n\\nHistorique récent: ' + ctx + '\\nProfil utilisateur: ' + prof;\nif (intent === 'analyste' || intent === 'operateur') sys += '\\nTableau de bord: ' + dash;\nreturn [{ json: { intent, system: sys, user: text } }];"
+      },
+      "id": "intent",
+      "name": "Intent + persona",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: ($env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini'), max_tokens: 320, messages: [ { role: 'system', content: $json.system }, { role: 'user', content: $json.user } ] }) }}",
+        "options": {}
+      },
+      "id": "responder",
+      "name": "Réponse IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        140
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "OPENAI",
+          "name": "OpenAI (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = ($('Réponse IA').item.json.choices[0].message.content) || '';\nconst c = $('Contexte message').item.json;\nconst intent = $('Intent + persona').item.json.intent;\nconst key = $('Préparer SQL (in + lectures)').item.json.cache_key;\nconst esc = (s) => String(s == null ? '' : s).split('$x$').join('');\nlet sql = `select fn_conv_remember($x$${esc(c.user_id)}$x$,$x$${esc(c.chat_id)}$x$,$x$${esc(c.user_name)}$x$,'out',$x$${esc(intent)}$x$,$x$${esc(intent)}$x$,$x$${esc(resp)}$x$,null);`;\nif (intent === 'singa') { sql += `\\nselect fn_cache_put($x$${esc(key)}$x$,$x$${esc(c.text)}$x$,$x$${esc(resp)}$x$,24);`; }\nreturn [{ json: { sql, response: resp } }];"
+      },
+      "id": "prepout",
+      "name": "Préparer SQL (out + cache)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "recout",
+      "name": "Enregistrer réponse",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1980,
+        140
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_PG",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Contexte message').item.json.chat_id }}",
+        "text": "={{ $('Préparer SQL (out + cache)').item.json.response }}",
+        "additionalFields": {}
+      },
+      "id": "sendia",
+      "name": "Répondre (IA)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2200,
+        140
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Contexte message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contexte message": {
+      "main": [
+        [
+          {
+            "node": "Préparer SQL (in + lectures)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer SQL (in + lectures)": {
+      "main": [
+        [
+          {
+            "node": "Mémoire + cache + dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mémoire + cache + dashboard": {
+      "main": [
+        [
+          {
+            "node": "Cache 24h ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache 24h ?": {
+      "main": [
+        [
+          {
+            "node": "Répondre (cache)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Routeur d'intention (léger)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Routeur d'intention (léger)": {
+      "main": [
+        [
+          {
+            "node": "Intent + persona",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent + persona": {
+      "main": [
+        [
+          {
+            "node": "Réponse IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Réponse IA": {
+      "main": [
+        [
+          {
+            "node": "Préparer SQL (out + cache)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer SQL (out + cache)": {
+      "main": [
+        [
+          {
+            "node": "Enregistrer réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer réponse": {
+      "main": [
+        [
+          {
+            "node": "Répondre (IA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lib-error-handler"
+  },
+  "active": false,
+  "tags": [
+    {
+      "name": "ac-core"
+    },
+    {
+      "name": "telegram"
+    },
+    {
+      "name": "bot"
+    }
+  ]
+}
